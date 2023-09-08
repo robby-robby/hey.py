@@ -16,22 +16,16 @@ introduce yourself
 :wq
 ```
 
-```markdown
-> "AI Language Model: Your Virtual Assistant for Any Task!"
+## _No dependencies to install! (except python3)_
 
-### User
+# ⚡️⚡️⚡️️*NEW BONUS Prompt Explorer* 👇👇👇👇 Added Sep 9th 2023
 
-introduce yourself
+💥 _drop prompts.html into the prompts directory in `$HOME/.prompts`_
+then run: 💥
 
-### Assistant
-
-Hello! I am an AI language model developed by OpenAI. I am here to assist you with any questions or tasks
-you have. Feel free to ask me anything!
+```sh
+$> python3 -m http.server 8000
 ```
-
-Use `hey.py` to configure your model and manage prompts from the Command-Line Interface (CLI).
-
-## No dependencies to install! (except python3)
 
 # Setup
 
