@@ -16,7 +16,7 @@ global PROMPTS_DIR
 PROMPTS_DIR: str = os.path.join(os.environ.get("HOME"), ".prompts")  # type: ignore
 OPENAIKEY: str = os.environ.get("OPENAI_API_KEY")  # type: ignore
 CFG_FILENAME = ".hey_config.json"
-DEFAULT_BRANCH = "main"
+DEFAULT_CONVO = "main"
 DEFAULT_CTX_FILENAME = ".hey_context.main.json"
 EDITOR = os.environ.get("EDITOR", "nvim")
 
@@ -41,15 +41,15 @@ class ConfigDict(TypedDict):
     prompts_dir: str
     editor: str
     pins: List[str]
-    branch: str
+    convo: str
     context_filename: str
 
 
 # move to module
 class util:
     @staticmethod
-    def ctx_path(prompts_dir: str, branch: str):
-        return os.path.join(prompts_dir, f".hey_context.{branch}.json")
+    def ctx_path(prompts_dir: str, convo: str):
+        return os.path.join(prompts_dir, f".hey_context.{convo}.json")
 
     @staticmethod
     def uuid(len: int = 8):
@@ -159,10 +159,10 @@ class CLI:
             "--get_model", action="store_true", help="get the current model"
         )
 
-        parser.add_argument("--delete_branch", type=str, help="delete prompt branch")
+        parser.add_argument("--delete_convo", type=str, help="delete prompt convo")
 
         parser.add_argument(
-            "--archive", action="store_true", help="move all branches to archive"
+            "--archive", action="store_true", help="move all convos to archive"
         )
 
         parser.add_argument(
@@ -196,17 +196,15 @@ class CLI:
             type=str,
             help="set the editor path",
         )
+        parser.add_argument("--new_convo", action="store_true", help="new prompt convo")
+        parser.add_argument("--set_pin", type=str, help="set prompt convo to pin")
+        parser.add_argument("--set_convo", type=str, help="set prompt convo")
+        parser.add_argument("--show", type=str, help="show prompt convo")
+        parser.add_argument("--convos", action="store_true", help="list convos")
         parser.add_argument(
-            "--new_branch", action="store_true", help="new prompt branch"
-        )
-        parser.add_argument("--set_pin", type=str, help="set prompt branch to pin")
-        parser.add_argument("--set_branch", type=str, help="set prompt branch")
-        parser.add_argument("--show", type=str, help="show prompt branch")
-        parser.add_argument("--branches", action="store_true", help="list branches")
-        parser.add_argument(
-            "--branches_with_files",
+            "--convos_with_files",
             action="store_true",
-            help="list branches with files",
+            help="list convos with files",
         )
         parser.add_argument(
             "--recent",
@@ -240,14 +238,14 @@ class CLI:
 
         self.get_model = args.get_model
         self.qk = args.qk
-        self.new_branch = args.new_branch
+        self.new_convo = args.new_convo
         self.models = args.models
         self.retry = args.retry
         self.set_model = args.set_model
         self.show = args.show
-        self.branches_with_files = args.branches_with_files
+        self.convos_with_files = args.convos_with_files
         self.temp = args.temp
-        self.set_branch = args.set_branch
+        self.set_convo = args.set_convo
         self.set_pin = args.set_pin
         self.reset = args.reset
         self.tidy = args.tidy
@@ -255,14 +253,14 @@ class CLI:
         self.archive = args.archive
         self.recent = args.recent
         self.init = args.init
-        self.branches = args.branches
+        self.convos = args.convos
         self.qk4 = args.qk4
         self.openeditor = not args.no_editor
         self.editor = args.editor
         self.pins = args.pins
         self.pin = args.pin
         self.trim = args.trim
-        self.delete_branch = args.delete_branch
+        self.delete_convo = args.delete_convo
         self.new = args.new
         self.one_shot = args.one_shot
         self.info = args.info
@@ -318,7 +316,7 @@ class Config(PropsMixin):
         prompts_dir: str = PROMPTS_DIR,
         filename: str = CFG_FILENAME,
         editor: str = EDITOR,
-        branch: str = DEFAULT_BRANCH,
+        convo: str = DEFAULT_CONVO,
         ctx_filename: str = DEFAULT_CTX_FILENAME,
     ):
         obj: ConfigDict = {
@@ -327,7 +325,7 @@ class Config(PropsMixin):
             "pins": [],
             "prompts_dir": prompts_dir,
             "editor": editor,
-            "branch": branch,
+            "convo": convo,
             "context_filename": ctx_filename,
         }
         self.obj = obj
@@ -337,13 +335,13 @@ class Config(PropsMixin):
         )
 
     def remove_pin(self, pin: str = ""):
-        pin = pin or self.obj["branch"]
+        pin = pin or self.obj["convo"]
         if pin in self.obj["pins"]:
             self.obj["pins"].remove(pin)
             self.save()
 
     def add_pin(self, pin: str = ""):
-        pin = pin or self.obj["branch"]
+        pin = pin or self.obj["convo"]
         if pin not in self.obj["pins"]:
             self.obj["pins"].append(pin)
             self.save()
@@ -361,7 +359,7 @@ class Config(PropsMixin):
         )
         return all_files
 
-    def list_branches(self):
+    def list_convos(self):
         return [f.split(".")[-2] for f in self.list_context_files()]
 
     @property
@@ -386,12 +384,12 @@ class Config(PropsMixin):
         return self.obj["model"]
 
     @property
-    def branch(self):
-        return self.obj["branch"]
+    def convo(self):
+        return self.obj["convo"]
 
-    @branch.setter
-    def branch(self, value: str):
-        self.obj["branch"] = value
+    @convo.setter
+    def convo(self, value: str):
+        self.obj["convo"] = value
         self.save()
 
     @property
@@ -437,7 +435,7 @@ class Config(PropsMixin):
 
 
 class Context(PropsMixin):
-    def __init__(self, prompts_dir: str = PROMPTS_DIR, branch: str = DEFAULT_BRANCH):
+    def __init__(self, prompts_dir: str = PROMPTS_DIR, convo: str = DEFAULT_CONVO):
         obj: ContextType = {
             "start_date": datetime.now().isoformat(),
             "end_date": None,
@@ -449,16 +447,16 @@ class Context(PropsMixin):
         self.obj = obj
         super().__init__(
             obj,
-            util.ctx_path(prompts_dir, branch),
+            util.ctx_path(prompts_dir, convo),
         )
 
     @staticmethod
     def New(
         prompts_dir: str = PROMPTS_DIR,
-        branch: str = DEFAULT_BRANCH,
+        convo: str = DEFAULT_CONVO,
     ):
 
-        return Context(branch=branch, prompts_dir=prompts_dir)
+        return Context(convo=convo, prompts_dir=prompts_dir)
 
     @property
     def md_file(self):
@@ -610,14 +608,14 @@ class Client:
         context: Context | None = None,
     ):
         if not context:
-            context = Context.New(branch=config.branch, prompts_dir=config.prompts_dir)
+            context = Context.New(convo=config.convo, prompts_dir=config.prompts_dir)
         return Client(fetcher=fetcher, config=config, context=context)
 
-    def delete_branch(self, branch_id: str, branch_title: str, md_file: str):
-        # print(f"Deleting branch {branch_id} {branch_title} {md_file}")
-        ans = input(f"Delete branch: {branch_title}? (y/n) ")
+    def delete_convo(self, convo_id: str, convo_title: str, md_file: str):
+        # print(f"Deleting convo {convo_id} {convo_title} {md_file}")
+        ans = input(f"Delete convo: {convo_title}? (y/n) ")
         if ans.lower() == "y":
-            os.remove(util.ctx_path(self.config.prompts_dir, branch_id))
+            os.remove(util.ctx_path(self.config.prompts_dir, convo_id))
             os.remove(md_file)
 
     def tidy_contexts(self):
@@ -672,21 +670,21 @@ class Client:
         print("model:", self.config.model)
         print("md_file:", self.context.md_file)
         print("temp:", self.config.temp / 10)
-        print("branch:", self.config.branch)
+        print("convo:", self.config.convo)
         if self.context.smart_title:
             print("smart_title:", self.context.smart_title)
         print("messages:", len(self.context.messages))
 
-    def get_branches(self):
-        return self.config.list_branches()
+    def get_convos(self):
+        return self.config.list_convos()
 
-    def branches_with_titles(self):
-        return self.add_titles_to_branches(self.config.list_branches())
+    def convos_with_titles(self):
+        return self.add_titles_to_convos(self.config.list_convos())
 
-    def add_titles_to_branches(self, branches: List[str]):
-        branches = branches
-        branches_with_titles: List[Tuple[str, str, str]] = []
-        for _, b in enumerate(branches):
+    def add_titles_to_convos(self, convos: List[str]):
+        convos = convos
+        convos_with_titles: List[Tuple[str, str, str]] = []
+        for _, b in enumerate(convos):
             b_path = util.ctx_path(self.config.prompts_dir, b)
             title: str = "unknown"
             mdfile: str = ""
@@ -695,41 +693,41 @@ class Client:
                     j = json.load(f)
                     title = j["smart_title"]
                     mdfile = j["md_file"]
-            branches_with_titles.append((b, title, mdfile))
-        return branches_with_titles
+            convos_with_titles.append((b, title, mdfile))
+        return convos_with_titles
 
     def print_pins_with_titles(self):
         if not self.config.pins:
             return print("no pins")
-        self.print_branche_title_enumeration(
-            branches_with_titles=self.add_titles_to_branches(self.config.pins)
+        self.print_convoe_title_enumeration(
+            convos_with_titles=self.add_titles_to_convos(self.config.pins)
         )
 
-    def print_branches_with_title_and_files(self):
-        return self.print_branche_title_enumeration(
-            branches_with_titles=self.add_titles_to_branches(self.get_branches()),
+    def print_convos_with_title_and_files(self):
+        return self.print_convoe_title_enumeration(
+            convos_with_titles=self.add_titles_to_convos(self.get_convos()),
             with_filename=True,
         )
 
-    def print_branches_with_title(self):
-        return self.print_branche_title_enumeration(
-            branches_with_titles=self.add_titles_to_branches(self.get_branches())
+    def print_convos_with_title(self):
+        return self.print_convoe_title_enumeration(
+            convos_with_titles=self.add_titles_to_convos(self.get_convos())
         )
 
-    def print_branche_title_enumeration(
+    def print_convoe_title_enumeration(
         self,
-        branches_with_titles: List[Tuple[str, str, str]],
+        convos_with_titles: List[Tuple[str, str, str]],
         with_filename: bool = False,
     ):
-        for i, (b, title, filename) in enumerate(branches_with_titles):
+        for i, (b, title, filename) in enumerate(convos_with_titles):
             f = f" @{filename}" if with_filename else ""
             if not title:
                 title = "<BLANK>"
-            if self.branch != b:
-                # not printing branch id
+            if self.convo != b:
+                # not printing convo id
                 print(f"{i}: {title}{f}")
             else:
-                # not printing branch id
+                # not printing convo id
                 print(f"\033[1m{i}: {title}\033[0m")
 
     def add_prompts(self, user_prompt: PromptType, ai_prompt: PromptType):
@@ -776,12 +774,12 @@ class Client:
         self.config.remove_pin(pin)
 
     @property
-    def branch(self):
-        return self.config.branch
+    def convo(self):
+        return self.config.convo
 
-    @branch.setter
-    def branch(self, value: str):
-        self.config.branch = value
+    @convo.setter
+    def convo(self, value: str):
+        self.config.convo = value
 
     @property
     def model(self):
@@ -798,12 +796,12 @@ class Client:
     def pop_user_prompt(self):
         return self.context.pop_user_prompt()
 
-    def load_context(self, branch: str):
-        return self.new_context(branch)
+    def load_context(self, convo: str):
+        return self.new_context(convo)
 
-    def new_context(self, branch: str = util.uuid()):
-        self.config.branch = branch
-        self.context = Context.New(branch=self.config.branch)
+    def new_context(self, convo: str = util.uuid()):
+        self.config.convo = convo
+        self.context = Context.New(convo=self.config.convo)
         self.context.save()
         self.config.context_filename = self.context.filename
         self.config.save()
@@ -900,7 +898,7 @@ class Interactive:
 
     def make_new(self):
         if self.client.context.end_date is not None:
-            print("new context/branch created")
+            print("new context/convo created")
             self.client.new_context()
         else:
             print(self.client.context.filename)
@@ -932,59 +930,59 @@ class Interactive:
         return False
 
     def show_context(self, index_or_name: str):
-        bs = self.client.branches_with_titles()
-        branch_titles = [str(title) for _, title, __ in bs]
+        bs = self.client.convos_with_titles()
+        convo_titles = [str(title) for _, title, __ in bs]
 
         def output_md_file(idx: int):
-            branch = bs[idx][0]
-            ctx_file = util.ctx_path(self.client.config.prompts_dir, branch)
+            convo = bs[idx][0]
+            ctx_file = util.ctx_path(self.client.config.prompts_dir, convo)
             md_file = json.load(open(ctx_file))["md_file"]
             with open(md_file, "r") as mdf:
                 util.log(mdf.read())
 
         self.pick_list(
-            branch_titles,
+            convo_titles,
             index_or_name,
             output_md_file,
-            "branch",
+            "convo",
         )
 
-    def set_branch(self, index_or_name: str):
-        bs = self.client.branches_with_titles()
-        branch_titles = [str(title) for _, title, __ in bs]
+    def set_convo(self, index_or_name: str):
+        bs = self.client.convos_with_titles()
+        convo_titles = [str(title) for _, title, __ in bs]
         return self.pick_list(
-            branch_titles,
+            convo_titles,
             index_or_name,
-            lambda idx: setattr(self.client, "branch", bs[idx][0]),
-            "branch",
+            lambda idx: setattr(self.client, "convo", bs[idx][0]),
+            "convo",
         )
 
-    def delete_branch(self, index_or_name: str):
-        bs = self.client.branches_with_titles()
-        branch_titles = [str(title) for _, title, __ in bs]
+    def delete_convo(self, index_or_name: str):
+        bs = self.client.convos_with_titles()
+        convo_titles = [str(title) for _, title, __ in bs]
         return self.pick_list(
-            branch_titles,
+            convo_titles,
             index_or_name,
-            lambda idx: self.client.delete_branch(*bs[idx]),
-            "branch",
+            lambda idx: self.client.delete_convo(*bs[idx]),
+            "convo",
             "delete",
         )
 
     def set_pin(self, index_or_name: str):
-        bs = self.client.add_titles_to_branches(branches=self.client.config.pins)
-        branch_titles = [str(title) for _, title, __ in bs]
+        bs = self.client.add_titles_to_convos(convos=self.client.config.pins)
+        convo_titles = [str(title) for _, title, __ in bs]
         return self.pick_list(
-            branch_titles,
+            convo_titles,
             index_or_name,
-            lambda idx: setattr(self.client, "branch", bs[idx][0]),
+            lambda idx: setattr(self.client, "convo", bs[idx][0]),
             "pin",
         )
 
     def unset_pin(self, index_or_name: str):
-        bs = self.client.add_titles_to_branches(branches=self.client.config.pins)
-        branch_titles = [str(title) for _, title, __ in bs]
+        bs = self.client.add_titles_to_convos(convos=self.client.config.pins)
+        convo_titles = [str(title) for _, title, __ in bs]
         return self.pick_list(
-            branch_titles,
+            convo_titles,
             index_or_name,
             lambda idx: self.client.remove_pin(bs[idx][0]),
             "pin",
@@ -1114,16 +1112,16 @@ def main():
     myinteractive: Interactive = Interactive.New(client=myclient)
     myCLI = CLI()
     trim = myCLI.trim or 0
-    if myCLI.set_branch:
-        return myinteractive.set_branch(myCLI.set_branch)
+    if myCLI.set_convo:
+        return myinteractive.set_convo(myCLI.set_convo)
 
     if myCLI.set_pin:
         return myinteractive.set_pin(myCLI.set_pin)
 
-    if myCLI.branches_with_files:
-        return myclient.print_branches_with_title_and_files()
-    if myCLI.branches:
-        return myclient.print_branches_with_title()
+    if myCLI.convos_with_files:
+        return myclient.print_convos_with_title_and_files()
+    if myCLI.convos:
+        return myclient.print_convos_with_title()
 
     if myCLI.temp is not None:
         return myinteractive.set_temp(myCLI.temp)
@@ -1155,15 +1153,15 @@ def main():
             content=myCLI.sentence or "", open_editor=myCLI.openeditor
         )
 
-    if myCLI.delete_branch:
-        return myinteractive.delete_branch(myCLI.delete_branch)
+    if myCLI.delete_convo:
+        return myinteractive.delete_convo(myCLI.delete_convo)
     if myCLI.archive:
         return myclient.archive()
     if myCLI.qk:
         return myinteractive.qk_prompt(myCLI.sentence)
     if myCLI.qk4:
         return myinteractive.qk_prompt4(myCLI.sentence)
-    if myCLI.new or myCLI.new_branch:
+    if myCLI.new or myCLI.new_convo:
         return myinteractive.make_new()
     if myCLI.models:
         return myinteractive.num_list()

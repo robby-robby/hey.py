@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Markdown Viewer</title>
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/dark.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuzzysort@2.0.4/fuzzysort.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/gh/nextapps-de/flexsearch@0.7.31/dist/flexsearch.bundle.js"></script>
+
+  <script>
+    let file = null;
+    const HOT = true;
+    (async function main() {
+      if (!HOT) return;
+      const h = await fetch("/prompts.html").then((r) =>
+        r.headers.get("etag")
+      );
+
+      if (file === null) file = h;
+      else if (file !== h) {
+        window.location = "/prompts.html";
+      }
+      await new Promise((rs) => setTimeout(rs, 1000));
+      return await main();
+    })();
+  </script>
+  <script>
+    hljs.highlightAll();
+  </script>
+
+  <style>
+    body {
+      background: rgb(129, 129, 129);
+      display: flex;
+      flex-direction: row;
+      font-family: sans-serif;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    #sidebar {
+      flex: 0 0 auto;
+      height: calc(100vh - 50px);
+      overflow: auto;
+      font-size: small;
+      padding: 10px;
+      resize: horizontal;
+      width: 250px;
+    }
+
+    #sidebar li {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    small {
+      color: #69707b;
+    }
+
+    #sidebar small {
+      --r: 0;
+      --g: 0;
+      color: rgb(calc(105 + var(--r)), calc(112 + var(--g)), 123);
+    }
+
+    #search {
+      margin-bottom: 10px;
+      width: 140px;
+      /* width: 100%; */
+
+    }
+
+    #regexpflags {
+      width: 50px;
+      display: none;
+    }
+
+    /* Show regexpflags when rgrep is checked */
+    #rgrep:checked~#regexpflags {
+      display: block;
+    }
+
+
+    #fileList {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .hl {
+      color: red;
+    }
+
+    #output {
+      flex: 1 1 auto;
+      height: calc(100vh - 50px);
+      overflow: auto;
+      padding: 10px;
+      /* resize: horizontal; */
+    }
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    /* Set background color for entire page */
+    body {
+      background-color: #36393f;
+    }
+
+    /* Set text color for entire page */
+    body,
+    input,
+    textarea {
+      color: #fff;
+    }
+
+    /* Set color for links */
+    a {
+      color: #7289da;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Set color for headings */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      color: #fff;
+    }
+
+    /* Set color for buttons */
+    button {
+      background-color: #7289da;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #677bc4;
+    }
+
+    /* Set color for form elements */
+    input[type="text"],
+    input[type="password"],
+    textarea,
+    select {
+      background-color: #40444b;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 6px 10px;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      background-color: #2f3136;
+    }
+
+    /* Set color for form labels */
+    label {
+      color: #b9bbbe;
+    }
+
+    /* Set color for table headers */
+    th {
+      color: #fff;
+      background-color: #4f545c;
+    }
+
+    /* Set color for table rows */
+    td {
+      color: #fff;
+      background-color: #2f3136;
+    }
+
+    /* Set color for code blocks */
+    pre {
+      color: #fff;
+      background-color: #2f3136;
+      border: none;
+      border-radius: 3px;
+      padding: 6px 10px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    /* Set color for blockquotes */
+    blockquote {
+      color: #b9bbbe;
+      border-left: 4px solid #7289da;
+      margin: 0;
+      padding: 0 15px;
+    }
+
+    /* Set color for horizontal rule */
+    hr {
+      border-color: #4f545c;
+    }
+
+    /* Set color for code inline */
+    code {
+      color: #7289da;
+      background-color: #2f3136;
+      border-radius: 3px;
+      padding: 0 5px;
+    }
+
+    [id^="user"]::before {
+      content: "😊 ";
+      font-size: xx-large;
+    }
+
+    [id^="assistant"]::before {
+      content: "🤖 ";
+      font-size: xx-large;
+    }
+  </style>
+
+  <style media="print">
+    #sidebar {
+      display: none;
+    }
+
+    #output {
+      resize: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <input type="text" id="search" placeholder="Search..." />
+    <div id="search_radios">
+      <input type="radio" id="rflex" name="search_radios" value="flex" />
+      <label for="rflex"> Flex</label>
+      <input type="radio" id="rfuzzy" name="search_radios" value="fuzzy" />
+      <label for="rfuzzy"> Fuzzy</label>
+      <input type="radio" id="rgrep" name="search_radios" value="grep" />
+      <label for="rgrep"> Grep</label>
+      <input type="text" id="regexpflags" value="g" />
+    </div>
+    <ul id="fileList"></ul>
+  </div>
+  <div id="output"></div>
+
+  <script>
+    (async function main() {
+      function settings(value) {
+        const defaults = {};
+        const cookieValue = ((document.cookie?.split("; ") || [])
+          .find((row) => row.startsWith("myCookie="))?.split("=") || [])[1];
+        const newCookie = { ... (cookieValue ? JSON.parse((cookieValue)) : {}), ...(value || {}) }
+        if (value) {
+          const myJSON = JSON.stringify(newCookie);
+          document.cookie = "myCookie=" + myJSON;
+        }
+        return newCookie
+      }
+
+      const index = FlexSearch.Worker({
+        tokenize: "full"
+      });
+      const fileList = document.getElementById("fileList");
+      const output = document.getElementById("output");
+      const search = document.getElementById("search");
+      const regexpflags = document.getElementById('regexpflags');
+      let CURRENT = null;
+
+      function renderContent(content, file) {
+        return `<a href="${file.name}"><small>show raw</small></a>\n\n\n` + marked.marked(content);
+      }
+
+      function buildList(files, highlights) {
+        fileList.innerHTML = "";
+        for (let file of files) {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = '#' + "/" + file.name;
+          a.setAttribute('data-url', file.href);
+          a.innerText = file.indexName;
+          li.appendChild(a);
+          fileList.appendChild(li);
+          // const content = highlights ? file.highlight : file.content;
+          const content = file.content;
+          if (highlights) {
+            const small = document.createElement("small");
+            const n = Math.abs(Math.trunc(file.score));
+            let r = 0;
+            let g = 0;
+            const F = 50000;
+            if (n > F) {
+              r = Math.trunc(151 * ((n - F) / F));
+            } else {
+              g = Math.trunc((144 * ((F - n) / F)));
+            }
+
+            small.innerText = " (" + n + ")";
+            small.style = `--r:${r};--g:${g};`;
+            a.appendChild(small);
+          }
+          a.onclick = (e) => {
+            CURRENT = file.name;
+            const html = renderContent(content, file);
+            output.innerHTML = html;
+            document.title = file.indexName
+            hljs.highlightAll();
+            e.preventDefault();
+            window.location.hash = '#' + "/" + file.name;
+            return false;
+          }
+        }
+      }
+
+      const promptObjs = await fetch("/")
+        .then((response) => response.text())
+        .then((html) => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          const links = doc.querySelectorAll("a");
+
+          return Promise.all(
+            Array.from(links)
+              .filter(link => link.innerText.endsWith('.md'))
+              .map((link) => {
+                const name = link.innerText;
+                const file = link.href;
+                return fetch(file)
+                  .then((response) => response.text())
+                  .then((content) => ({ name, href: link.href, content, indexName: name.replace(/_/g, ' ').replace(/.md$/, '') }));
+              })
+          );
+        })
+      buildList(promptObjs);
+      promptObjs.forEach(t => t.contentPrepared = fuzzysort.prepare(t.content))
+      promptObjs.forEach((po, i) => index.add(i, po.content))
+      const promptObjsPrepared = promptObjs.map((t, i) => ({ ...t.contentPrepared, i }))
+
+      function populateView(href) {
+        const file = href.split('#').slice(1);
+        fetch(file)
+          .then((response) => response.text())
+          .then((content) => {
+            const html = renderContent(content, { name: file });
+            document.title = (file[0].slice(1).slice(0, -4).replace(/_/g, ' '));
+            output.innerHTML = html;
+            hljs.highlightAll();
+          });
+      }
+
+      if (window.location.hash) {
+        populateView(window.location.hash);
+      }
+
+      function debounce(func, wait) {
+        let timeout;
+
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+
+      async function flexSearch(searchTerm) {
+        const result = await index.search(searchTerm);
+        const objs = result.map((id) => ({ ...promptObjs[id], score: null }));
+        buildList(objs);
+      }
+      function fuzzySearch(searchTerm) {
+        const matches = (fuzzysort.go(searchTerm, promptObjsPrepared, { threshold: -100000 }));
+        const objs = matches.map(m => ({ ...promptObjs[m.i], score: m.score, content: fuzzysort.highlight(m, '<b class="hl">', '</b>') }));
+        buildList(objs, true);
+      }
+      function grepSearch(searchTerm) {
+        let sr = searchTerm.trim();
+        if (sr.startsWith('"') && sr.endsWith('"')) {
+          sr = sr.slice(1, -1)
+          buildList(promptObjs.filter(po => po.content.indexOf(sr) !== -1));
+        } else /* assume regex */ {
+          const flags = document.getElementById('regexpflags').value
+          const re = new RegExp(sr, flags);
+          const po = promptObjs.filter(po => re.test(po.content));
+          buildList(po);
+        }
+      }
+
+
+      if (settings().searchType === "fuzzy") {
+        document.getElementById("rfuzzy").checked = true
+      } else {
+        document.getElementById("rflex").checked = true
+      }
+
+      // const getSearchType = () => (document.getElementById("rfuzzy").checked) ? "fuzzy" : "flex";
+      const getSearchType = () => [...document.querySelectorAll('[type=radio]')].filter(node => node.checked).filter(Boolean)[0].value;
+
+
+      const debounceInput = debounce(() => {
+        const searchTerm = search.value;
+        if (!searchTerm) {
+          buildList(promptObjs);
+        } else {
+          switch (getSearchType()) {
+            case "fuzzy":
+              fuzzySearch(searchTerm)
+              break;
+            case "flex":
+              flexSearch(searchTerm)
+              break;
+            case "grep":
+              grepSearch(searchTerm)
+              break;
+            default:
+              break;
+          }
+        }
+      }, 100);
+      [search, regexpflags].forEach(el => el.addEventListener("input", (event) => {
+        debounceInput();
+      }));
+
+      [search, regexpflags].forEach(el => el.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          search.value = "";
+          buildList(promptObjs);
+        }
+      }));
+
+      document.getElementById("search_radios").addEventListener('change', event => {
+
+        // setTimeout(() => settings({ searchType: getSearchType() }), 0)
+
+        settings({ searchType: getSearchType() })
+
+        debounceInput(document.getElementById('search').value);
+      })
+      window.addEventListener("hashchange", (event) => {
+        const h = (window.location.hash.slice(2));
+        if (!h) return;
+        const curr = CURRENT;
+        if (h !== curr) {
+          CURRENT = h;
+          const file = (promptObjs.find(f => f.name === h))
+          if (!file) return;
+          const html = renderContent(file.content, file);
+
+          document.title = (file.indexName);
+          output.innerHTML = html;
+          hljs.highlightAll();
+        }
+      });
+
+
+
+      const windowSearchTerm = (window.location.search.split('?q=') ?? [])[1];
+      if (windowSearchTerm) {
+        search.value = windowSearchTerm;
+        fuzzySearch(windowSearchTerm)
+
+      }
+    })();
+
+  </script>
+</body>
+
+</html>
