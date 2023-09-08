@@ -16,22 +16,16 @@ introduce yourself
 :wq
 ```
 
-```markdown
-> "AI Language Model: Your Virtual Assistant for Any Task!"
+## _No dependencies to install! (except python3)_
 
-### User
+# ⚡️⚡️⚡️️*NEW BONUS Prompt Explorer* 👇👇👇👇 Added Sep 9th 2023
 
-introduce yourself
+💥 _drop prompts.html into the prompts directory in `$HOME/.prompts`_
+then run: 💥
 
-### Assistant
-
-Hello! I am an AI language model developed by OpenAI. I am here to assist you with any questions or tasks
-you have. Feel free to ask me anything!
+```sh
+$> python3 -m http.server 8000
 ```
-
-Use `hey.py` to configure your model and manage prompts from the Command-Line Interface (CLI).
-
-## No dependencies to install! (except python3)
 
 # Setup
 
@@ -55,11 +49,11 @@ $> hey --editor micro
 
 ```sh
 hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
-       [--delete_convo DELETE_CTX] [--archive] [--one_shot]
+       [--delete_convo DELETE_CONVO] [--archive] [--one_shot]
        [--tidy] [--pins] [--pin] [--unpin UNPIN] [--models]
        [--temp TEMP] [--set_model SET_MODEL] [--dir DIR]
        [--editor EDITOR] [--new_convo] [--set_pin SET_PIN]
-       [--set_convo SET_CTX] [--show SHOW] [--convos]
+       [--set_convo SET_CONVO] [--show SHOW] [--convos]
        [--convos_with_files] [--recent] [--info] [--trim TRIM]
        [--new] [--retry] [--init]
 ```
@@ -78,7 +72,7 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 - `--qk`: Quick and dirty mode, one-liner from CLI, no editor, does not save prompts, uses GPT-3.5 for speed and cost
 - `--qk4`: GPT4 quick and dirty mode, one-liner from CLI, no editor, does not save prompts
 - `--get_model`: Get the current model
-- `--delete_convo DELETE_CTX`: Delete prompt convo
+- `--delete_convo DELETE_CONVO`: Delete prompt convo
 - `--archive`: Move all convos to archive
 - `--one_shot`: One shot GPT4, does not save prompts
 - `--tidy`: Tidy orphaned convos
@@ -92,7 +86,7 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 - `--editor EDITOR`: Set the editor path
 - `--new_convo`: New prompt convo
 - `--set_pin SET_PIN`: Set prompt convo to pin
-- `--set_convo SET_CTX`: Set prompt convo
+- `--set_convo SET_CONVO`: Set prompt convo
 - `--show SHOW`: Show prompt convo
 - `--convos`: List convos
 - `--convos_with_files`: List convos with files
@@ -103,4 +97,4 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 - `--retry`: Retry the last prompt
 - `--init`: Init the last prompt
 
-Each option can be used directly on the command-line when using `hey.py`. Make sure you replace any needed values (like `DELETE_CTX`, `TEMP`, `SET_MODEL`, `DIR`, `EDITOR`, `SET_PIN`, `SET_CTX`, `SHOW`, `TRIM`, `NEW`, `RETRY`, or `INIT`) with your actual values when using the options.
+Each option can be used directly on the command-line when using `hey.py`. Make sure you replace any needed values (like `DELETE_CONVO`, `TEMP`, `SET_MODEL`, `DIR`, `EDITOR`, `SET_PIN`, `SET_CONVO`, `SHOW`, `TRIM`, `NEW`, `RETRY`, or `INIT`) with your actual values when using the options.
