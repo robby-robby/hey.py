@@ -6,11 +6,11 @@
 
 ```sh
 $> hey --new
-$> hey introduce yourself
+$> hey
 
 [ vim ]
 
-introduce yourself
+Give me ts elliots wasteland but in the style of a pirate
 
 
 :wq
@@ -20,7 +20,7 @@ introduce yourself
 
 # ⚡️⚡️⚡️️*NEW BONUS Prompt Explorer* 👇👇👇👇 Added Sep 9th 2023
 
-💥 _drop prompts.html into the prompts directory in `$HOME/.prompts`_
+💥 _drop prompts.html into the prompts directory in `$HOME/.hey_py`_
 then run: 💥
 
 ```sh
@@ -69,8 +69,8 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 - `-h`, `--help`: Show the help message and exit
 - `--no_editor`: Do not open the editor
 - `--reset`: Reset the convo and config
-- `--qk`: Quick and dirty mode, one-liner from CLI, no editor, does not save prompts, uses GPT-3.5 for speed and cost
-- `--qk4`: GPT4 quick and dirty mode, one-liner from CLI, no editor, does not save prompts
+- `--qk`: GPT3.5 Quick mode, one-liner from CLI, no editor, does not save prompts, best for speed and cost
+- `--qk4`: GPT4 quick mode, one-liner from CLI, no editor, does not save prompts
 - `--get_model`: Get the current model
 - `--delete_convo DELETE_CONVO`: Delete prompt convo
 - `--archive`: Move all convos to archive
@@ -92,7 +92,7 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 - `--convos_with_files`: List convos with files
 - `--recent`: Output the most recent prompt read from the convo file
 - `--info`: convo, config, and prompts directory
-- `--trim TRIM`: Trim the first <n> responses from the convo when fetching the next prompt
+- `--trim TRIM`: Trim the first TRIM responses from the convo when fetching the next prompt
 - `--new`: Create new conversation/convo
 - `--retry`: Retry the last prompt
 - `--init`: Init the last prompt
