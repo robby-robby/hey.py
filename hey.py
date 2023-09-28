@@ -15,7 +15,7 @@ import base64
 import hashlib
 
 global PROMPTS_DIR
-PROMPTS_DIR: str = os.path.join(os.environ.get("HOME"), ".prompts")  # type: ignore
+PROMPTS_DIR: str = os.path.join(os.environ.get("HOME"), ".hey_py")  # type: ignore
 OPENAIKEY: str = os.environ.get("OPENAI_API_KEY")  # type: ignore
 CFG_FILENAME = ".hey_config.json"
 DEFAULT_CONVO = "main"
@@ -38,6 +38,7 @@ class ContextType(TypedDict):
 
 
 class ConfigDict(TypedDict):
+    codify: bool
     model: str
     temp: int
     prompts_dir: str
@@ -104,13 +105,23 @@ class util:
 
             # create temporary file, returns file object
             temp_dir = tempfile.mkdtemp()
-            temp_file_path = os.path.join(temp_dir, filename_root + ext)
+            copy_temp_file_path = os.path.join(
+                temp_dir, filename_root + ".hey_copy_codify" + ext
+            )
+            snippet_temp_file_path = os.path.join(
+                temp_dir, filename_root + ".hey_snippet_codify" + ext
+            )
 
-            with open(temp_file_path, "w") as temp_file:
+            with open(copy_temp_file_path, "w") as temp_file:
+                temp_file.write(code_block)
+
+            with open(snippet_temp_file_path, "w") as temp_file:
                 temp_file.write(code_block)
 
             # Visual Studio Code link to temp file
-            return "{}\n\n vscode://{}\n\n".format(s, temp_file_path)
+            return "{}\n\n [copy:]({})\n\n[snippet:]({})".format(
+                s, copy_temp_file_path, snippet_temp_file_path
+            )
 
         return re.sub(r"```(.*?)```", replacer, markdown_text, flags=re.DOTALL)
 
@@ -123,7 +134,9 @@ class util:
         return "".join(random.choices(string.ascii_letters + string.digits, k=len))
 
     @staticmethod
-    def log(s: str) -> None:
+    def log(s: str | None) -> None:
+        if s is None:
+            return
         if util.codify:
             s = util.language_annotation(s)
         if os.environ.get("HEY_OUT") != None:
@@ -208,9 +221,10 @@ class CLI:
         parser = argparse.ArgumentParser(
             description="CLI for model configuration and prompt management."
         )
-        parser.add_argument(
-            "--codify", action="store_true", help="store code blocks in temp files"
-        )
+        parser.add_argument("--codify", action="store_true", help="output with codify")
+
+        parser.add_argument("--codify_on", action="store_true", help="turn on codify")
+        parser.add_argument("--codify_off", action="store_true", help="turn off codify")
         parser.add_argument(
             "--no_editor", action="store_true", help="do not open the editor"
         )
@@ -311,6 +325,8 @@ class CLI:
 
         self.get_model = args.get_model
         self.codify = args.codify
+        self.codify_on = args.codify_on
+        self.codify_off = args.codify_off
         self.qk = args.qk
         self.new_convo = args.new_convo
         self.models = args.models
@@ -394,6 +410,7 @@ class Config(PropsMixin):
         ctx_filename: str = DEFAULT_CTX_FILENAME,
     ):
         obj: ConfigDict = {
+            "codify": False,
             "model": "gpt-3.5-turbo",
             "temp": 7,
             "pins": [],
@@ -435,6 +452,15 @@ class Config(PropsMixin):
 
     def list_convos(self):
         return [f.split(".")[-2] for f in self.list_context_files()]
+
+    @property
+    def codify(self):
+        return self.obj["codify"]
+
+    @codify.setter
+    def codify(self, value: bool):
+        self.obj["codify"] = value
+        self.save()
 
     @property
     def context_filename(self):
@@ -847,6 +873,12 @@ class Client:
     def remove_pin(self, pin: str):
         self.config.remove_pin(pin)
 
+    def set_codify(self, codify: bool):
+        self.config.codify = codify
+
+    def get_codify(self):
+        return self.config.codify
+
     @property
     def convo(self):
         return self.config.convo
@@ -1186,6 +1218,14 @@ def main():
     myinteractive: Interactive = Interactive.New(client=myclient)
     myCLI = CLI()
     trim = myCLI.trim or 0
+    util.codify = myclient.get_codify()
+
+    if myCLI.codify_on:
+        myclient.set_codify(True)
+        return print("codify on")
+    if myCLI.codify_off:
+        myclient.set_codify(False)
+        return print("codify off")
     if myCLI.codify:
         util.codify = True
     if myCLI.set_convo:

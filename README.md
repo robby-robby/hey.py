@@ -24,8 +24,11 @@ Give me ts elliots wasteland but in the style of a pirate
 then run: 💥
 
 ```sh
-$> python3 -m http.server 8000
+$> cd $HOME/.hey_py && python3 -m http.server 8000
 ```
+
+Also, take a look at `prompts.zsh` which uses a slightly different approach to the prompt explorer.
+
 
 # Setup
 
@@ -45,6 +48,8 @@ $> python3 -m http.server 8000
 $> hey --editor micro
 ```
 
+**Note: The editor should be terminal based and 'blocking' (hey.py waits for editor to close to run the prompt)**
+
 ## Usage
 
 ```sh
@@ -62,39 +67,110 @@ hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
 
 `hey.py` is a CLI for model configuration and prompt management.
 
-### Positional Arguments
+## Instructions
 
-### Options
+`hey.py --help`
 
-- `-h`, `--help`: Show the help message and exit
-- `--no_editor`: Do not open the editor
-- `--reset`: Reset the convo and config
-- `--qk`: GPT3.5 Quick mode, one-liner from CLI, no editor, does not save prompts, best for speed and cost
-- `--qk4`: GPT4 quick mode, one-liner from CLI, no editor, does not save prompts
-- `--get_model`: Get the current model
-- `--delete_convo DELETE_CONVO`: Delete prompt convo
-- `--archive`: Move all convos to archive
-- `--one_shot`: One shot GPT4, does not save prompts
-- `--tidy`: Tidy orphaned convos
-- `--pins`: List all pins
-- `--pin`: Pin the current convo
-- `--unpin UNPIN`: Unpin the given pin
-- `--models`: List all models
-- `--temp TEMP`: Set temperature: 1-10
-- `--set_model SET_MODEL`: Set the current model to the nth model in the list
-- `--dir DIR`: Set the prompts directory and subsequent config and convo files
-- `--editor EDITOR`: Set the editor path
-- `--new_convo`: New prompt convo
-- `--set_pin SET_PIN`: Set prompt convo to pin
-- `--set_convo SET_CONVO`: Set prompt convo
-- `--show SHOW`: Show prompt convo
-- `--convos`: List convos
-- `--convos_with_files`: List convos with files
-- `--recent`: Output the most recent prompt read from the convo file
-- `--info`: convo, config, and prompts directory
-- `--trim TRIM`: Trim the first TRIM responses from the convo when fetching the next prompt
-- `--new`: Create new conversation/convo
-- `--retry`: Retry the last prompt
-- `--init`: Init the last prompt
+CLI for model configuration and prompt management.
 
-Each option can be used directly on the command-line when using `hey.py`. Make sure you replace any needed values (like `DELETE_CONVO`, `TEMP`, `SET_MODEL`, `DIR`, `EDITOR`, `SET_PIN`, `SET_CONVO`, `SHOW`, `TRIM`, `NEW`, `RETRY`, or `INIT`) with your actual values when using the options.
+**Positional Arguments**
+  
+  `sentence` - Capture remaining input after flags
+
+**Options**
+
+  `-h, --help` - show this help message and exit
+  
+  `--codify` - output with codify
+  
+  `--codify_on` - turn on codify
+  
+  `--codify_off` - turn off codify
+  
+  `--no_editor` - do not open the editor
+  
+  `--reset` - reset the context and config
+  
+  `--qk` - quick and dirty mode, one-liner from cli, no editor, does not save prompts, uses gpt-3.5 for speed and cost
+  
+  `--qk4` - gpt4 quick and dirty mode, one-liner from cli, no editor, does not save prompts
+  
+  `--get_model` - get the current model
+  
+  `--delete_convo DELETE_CONVO` - delete prompt convo
+  
+  `--archive` - move all convos to archive
+  
+  `--one_shot` - one shot gpt4, does not save prompts
+  
+  `--tidy` - tidy orphaned contexts
+  
+  `--pins` - list all pins
+  
+  `--pin` - pin the current context
+  
+  `--unpin UNPIN` - unpin the given pin
+  
+  `--models` - list all models
+  
+  `--temp TEMP` - set temperature: 1-10
+  
+  `--set_model SET_MODEL` - set the current model to the nth model in the list
+
+  `--dir DIR` - set the prompts directory and subsequent config and context files
+  
+  `--editor EDITOR` - set the editor path
+  
+  `--new_convo` - new prompt convo
+  
+  `--set_pin SET_PIN` - set prompt convo to pin
+  
+  `--set_convo SET_CONVO` - set prompt convo
+  
+  `--show SHOW` - show prompt convo
+  
+  `--convos` - list convos
+  
+  `--convos_with_files` - list convos with files
+  
+  `--recent` - output the most recent prompt read from the context file
+  
+  `--info` - context, config and prompts directory
+  
+  `--trim TRIM` - trim the first <n> responses from the context when fetching  the next prompt
+  
+  `--new` - create new conversation / context
+  
+  `--retry` - retry the last prompt
+  
+  `--init` - init the last prompt
+
+
+## _New CODIFY.zsh Feature!_
+
+ ### Enabled with `--codify_on` flag
+ ### Copy or Open code blocks CMD+Click in Iterm2 !!!
+
+ ### To install in Iterm2
+ - Go to Profiles->Advanced->Semantic History
+ - Selectbox 'Run Coprocess', <FULL FILE PATH OF THIS SHELLSCRIPT>/copy.codify.zsh \1:\2
+
+ `hey.py` will output the snippet and copy file paths to output, this script will intercept
+ the **CMD+CLICK** based on the filename and behave accordingly.
+
+ the output will look like this:
+
+ ```js
+    function(){ console.log('hello world') }
+ ```
+
+        copy:
+        /var/folders/_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmpotazlf09/geawJ_TyCFbv4r_dQFTaL4IJXDs40Rk4.hey_copy_codify.js
+
+        snippet:
+        /var/folders/_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmpotazlf09/geawJ_TyCFbv4r_dQFTaL4IJXDs40Rk4.hey_snippet_codify.js
+
+ -------
+
+ - **CMD+CLICK** the file under 'copy:' will copy the contents to clipboard
+ - **CMD+CLICK** under 'snippet:' will open in editor_
