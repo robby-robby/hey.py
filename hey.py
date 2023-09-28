@@ -11,6 +11,8 @@ import tempfile
 from typing import Tuple, Any, Callable, Dict, List, Optional, TypedDict
 import requests
 import argparse
+import base64
+import hashlib
 
 global PROMPTS_DIR
 PROMPTS_DIR: str = os.path.join(os.environ.get("HOME"), ".prompts")  # type: ignore
@@ -47,6 +49,71 @@ class ConfigDict(TypedDict):
 
 # move to module
 class util:
+
+    codify: bool = False
+
+    @staticmethod
+    def language_annotation(markdown_text: str) -> str:
+        lang_to_extension = {
+            "python": ".py",
+            "javascript": ".js",
+            "java": ".java",
+            "c": ".c",
+            "cpp": ".cpp",
+            "html": ".html",
+            "css": ".css",
+            "ruby": ".rb",
+            "swift": ".swift",
+            "perl": ".pl",
+            "php": ".php",
+            "bash": ".sh",
+            "typescript": ".ts",
+            "csharp": ".cs",
+            "go": ".go",
+            "sql": ".sql",
+        }
+
+        def get_extension(language_line: str) -> str:
+            return lang_to_extension.get(language_line.lower(), ".txt")
+
+        def replacer(match: re.Match[str]) -> str:
+            s: str = match.group(0)
+            language_line: str
+            code_block: str
+            ext: str
+
+            try:
+                language_line: str = match.group(1).split("\n", 1)[0]
+                code_block = match.group(1).split("\n", 1)[1]
+                ext = get_extension(language_line)
+            except:
+                return s
+                # language_line = ""
+                # code_block = match.group(1)
+                # ext = ""
+
+            # generate the filename by hashing the code content
+            hash_object = hashlib.sha256(code_block.encode())
+            b64_hash = base64.b64encode(hash_object.digest())
+            filename_root = (
+                b64_hash.decode()[:32]
+                .replace("/", "_")
+                .replace("+", "_")
+                .replace("=", "_")
+            )
+
+            # create temporary file, returns file object
+            temp_dir = tempfile.mkdtemp()
+            temp_file_path = os.path.join(temp_dir, filename_root + ext)
+
+            with open(temp_file_path, "w") as temp_file:
+                temp_file.write(code_block)
+
+            # Visual Studio Code link to temp file
+            return "{}\n\n vscode://{}\n\n".format(s, temp_file_path)
+
+        return re.sub(r"```(.*?)```", replacer, markdown_text, flags=re.DOTALL)
+
     @staticmethod
     def ctx_path(prompts_dir: str, convo: str):
         return os.path.join(prompts_dir, f".hey_context.{convo}.json")
@@ -56,11 +123,13 @@ class util:
         return "".join(random.choices(string.ascii_letters + string.digits, k=len))
 
     @staticmethod
-    def log(*args: Any, **kwargs: Any) -> None:
+    def log(s: str) -> None:
+        if util.codify:
+            s = util.language_annotation(s)
         if os.environ.get("HEY_OUT") != None:
-            print(*args, file=open(os.environ["HEY_OUT"], "w"))
+            print(s, file=open(os.environ["HEY_OUT"], "w"))
         else:
-            print(*args, **kwargs)
+            print(s)
 
     @staticmethod
     def date_block(date: datetime):
@@ -72,7 +141,7 @@ class util:
     def title_block(title: str):
         return f"""
 # {title.strip('"').capitalize()}
-              """
+          """
 
     @staticmethod
     def msg_block(prompt: PromptType):
@@ -81,7 +150,7 @@ class util:
         return f"""
 ### {role.capitalize()}
 {content}
-              """
+          """
 
     @staticmethod
     def log_prompts(user_prompt: PromptType, ai_prompt: PromptType):
@@ -135,8 +204,12 @@ class Prompt:
 
 class CLI:
     def __init__(self):
+
         parser = argparse.ArgumentParser(
             description="CLI for model configuration and prompt management."
+        )
+        parser.add_argument(
+            "--codify", action="store_true", help="store code blocks in temp files"
         )
         parser.add_argument(
             "--no_editor", action="store_true", help="do not open the editor"
@@ -237,6 +310,7 @@ class CLI:
         args = parser.parse_args()
 
         self.get_model = args.get_model
+        self.codify = args.codify
         self.qk = args.qk
         self.new_convo = args.new_convo
         self.models = args.models
@@ -1112,6 +1186,8 @@ def main():
     myinteractive: Interactive = Interactive.New(client=myclient)
     myCLI = CLI()
     trim = myCLI.trim or 0
+    if myCLI.codify:
+        util.codify = True
     if myCLI.set_convo:
         return myinteractive.set_convo(myCLI.set_convo)
 
