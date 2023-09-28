@@ -53,14 +53,15 @@ $> hey --editor micro
 ## Usage
 
 ```sh
-hey.py [-h] [--no_editor] [--reset] [--qk] [--qk4] [--get_model]
-       [--delete_convo DELETE_CONVO] [--archive] [--one_shot]
-       [--tidy] [--pins] [--pin] [--unpin UNPIN] [--models]
-       [--temp TEMP] [--set_model SET_MODEL] [--dir DIR]
-       [--editor EDITOR] [--new_convo] [--set_pin SET_PIN]
-       [--set_convo SET_CONVO] [--show SHOW] [--convos]
-       [--convos_with_files] [--recent] [--info] [--trim TRIM]
-       [--new] [--retry] [--init]
+usage: hey.py [-h] [--codify] [--codify_on] [--codify_off] [--no_editor] [--reset]
+              [--qk] [--qk4] [--get_model] [--delete_convo DELETE_CONVO]
+              [--archive] [--one_shot] [--tidy] [--pins] [--pin] [--unpin UNPIN]
+              [--models] [--temp TEMP] [--set_model SET_MODEL] [--dir DIR]
+              [--editor EDITOR] [--new_convo] [--set_pin SET_PIN]
+              [--set_convo SET_CONVO] [--show SHOW] [--convos]
+              [--convos_with_files] [--recent] [--info] [--trim TRIM] [--new]
+              [--retry] [--init]
+              ...
 ```
 
 ## Description
