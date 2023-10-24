@@ -24,7 +24,7 @@ Give me ts elliots wasteland but in the style of a pirate
 
 - Enable with `--stream` flag
 - Typing effect for faster response time
-- Terminal clear command is sent after typing effect then the formated response will be outputed to the terminal, therefore not recommended if piping to another process
+- The clear terminal command is sent after typing, then the formatted response will be output to the terminal. Therefore, it is not recommended if piping to another process.
 
 # ⚡️⚡️⚡️️*NEW BONUS Prompt Explorer* 👇👇👇👇 Added Sep 9th 2023
 
@@ -184,4 +184,4 @@ the output will look like this:
 ---
 
 - **CMD+CLICK** the file under 'copy:' will copy the contents to clipboard
-- **CMD+CLICK** under 'snippet:' will open in editor\_
+- **CMD+CLICK** under 'snippet:' will open in editor
