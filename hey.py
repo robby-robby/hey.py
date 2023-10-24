@@ -13,6 +13,8 @@ import requests
 import argparse
 import base64
 import hashlib
+import sys
+
 
 global PROMPTS_DIR
 PROMPTS_DIR: str = os.path.join(os.environ.get("HOME"), ".hey_py")  # type: ignore
@@ -26,6 +28,21 @@ EDITOR = os.environ.get("EDITOR", "nvim")
 class PromptType(TypedDict):
     role: str
     content: str
+
+
+class ChoicesType(TypedDict):
+    index: int
+    delta: PromptType
+    finish_reason: Optional[str]
+
+
+class StreamType(TypedDict):
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: List[ChoicesType]
+    finish_reason: Optional[str]
 
 
 class ContextType(TypedDict):
@@ -191,7 +208,6 @@ class Prompt:
         return {
             "role": "user",
             "content": content,
-            # "timestamp": datetime.now().isoformat(),
         }
 
     @staticmethod
@@ -199,7 +215,6 @@ class Prompt:
         return {
             "role": "assistant",
             "content": content,
-            # "timestamp": datetime.now().isoformat(),
         }
 
     @staticmethod
@@ -211,7 +226,6 @@ class Prompt:
         return {
             "role": "user",
             "content": content,
-            # "timestamp": datetime.now().isoformat(),
         }
 
 
@@ -245,6 +259,8 @@ class CLI:
         parser.add_argument(
             "--get_model", action="store_true", help="get the current model"
         )
+
+        parser.add_argument("--stream", action="store_true", help="stream response")
 
         parser.add_argument("--delete_convo", type=str, help="delete prompt convo")
 
@@ -326,6 +342,7 @@ class CLI:
         self.get_model = args.get_model
         self.codify = args.codify
         self.codify_on = args.codify_on
+        self.stream = args.stream
         self.codify_off = args.codify_off
         self.qk = args.qk
         self.new_convo = args.new_convo
@@ -656,12 +673,60 @@ class Fetch:
         messages: List[PromptType] = ledger + [Prompt.title(max_char)]
         return self.prompt(messages, model="gpt-3.5-turbo")
 
-    def prompt(
+    def prompt_stream(
         self,
         messages: List[PromptType],
         model: str,
         prompt_temp: float = prompt_temp,
     ):
+        data = {
+            "model": model,
+            "messages": messages,
+            "temperature": prompt_temp or self.prompt_temp,
+            "stream": True,
+        }
+
+        try:
+            response = requests.post(
+                self.prompt_url, headers=self.headers, json=data, stream=True
+            )
+
+            entire_response = ""
+            for line in response.iter_lines():
+                if line:
+                    decoded_line = line.decode("utf-8")
+                    if decoded_line.startswith("data:"):
+                        event_data = decoded_line.replace("data:", "").strip()
+                        if event_data == "[DONE]":
+                            break
+                        else:
+                            data_json: StreamType = json.loads(event_data)
+                            message = data_json["choices"][0]["delta"].get(
+                                "content", ""
+                            )
+                            entire_response += message
+                            sys.stdout.write(message)
+                            sys.stdout.flush()
+
+            os.system("clear")
+            return (entire_response, None)
+
+        except json.JSONDecodeError as error:
+            e = Exception(f"error parsing response in fetch_prompt: {error}")
+            return (None, e)
+        except Exception as error:
+            return (None, error)
+
+    def prompt(
+        self,
+        messages: List[PromptType],
+        model: str,
+        prompt_temp: float = prompt_temp,
+        stream: bool = False,
+    ):
+        if stream:
+            return self.prompt_stream(messages, model, prompt_temp)
+
         text = ""
         json_data: Any = {}
         try:
@@ -844,14 +909,18 @@ class Client:
         self.write_conversation()
 
     # conveniece method for adding a single prompt to the context
-    def fetch_prompt_with_context(self, prompt: str, trim: int = 0, model: str = ""):
+    def fetch_prompt_with_context(
+        self, prompt: str, trim: int = 0, model: str = "", stream: bool = False
+    ):
         user_prompt = Prompt.user(prompt)
         ctx = (self.context.messages + [user_prompt])[trim:]
-        return self.fetch_prompt(ctx, model=(model or self.model))
+        return self.fetch_prompt(ctx, model=(model or self.model), stream=stream)
 
-    def fetch_prompt(self, messages: List[PromptType], model: str = ""):
+    def fetch_prompt(
+        self, messages: List[PromptType], model: str = "", stream: bool = False
+    ):
         response, error = self.fetcher.prompt(
-            messages, model or self.model, self.config.temp / 10
+            messages, model or self.model, self.config.temp / 10, stream=stream
         )
         if error:
             print("error fetch_prompt=" + str(error))
@@ -1163,23 +1232,27 @@ class Interactive:
                 pmpt = f.read().strip()
                 return pmpt if pmpt != "" else None
 
-    def one_shot_prompt(self, content: str = "", open_editor: bool = True):
+    def one_shot_prompt(
+        self, content: str = "", open_editor: bool = True, stream: bool = False
+    ):
         p = self.author_prompt(content) if open_editor else content
         if open_editor:
             print(p)
-        return self.qk_prompt4(sentence=p)
+        return self.qk_prompt4(sentence=p, stream=stream)
 
-    def qk_prompt4(self, sentence: str | None):
-        return self.qk_prompt(sentence, model="gpt-4")
+    def qk_prompt4(self, sentence: str | None, stream: bool = False):
+        return self.qk_prompt(sentence, model="gpt-4", stream=stream)
 
-    def qk_prompt(self, sentence: str | None, model: str = "gpt-3.5-turbo"):
+    def qk_prompt(
+        self, sentence: str | None, model: str = "gpt-3.5-turbo", stream: bool = False
+    ):
         if not sentence:
             return print("no sentence given")
         else:
             return util.log(
-                self.client.fetch_prompt([Prompt.user(sentence)], model=model)[
-                    "content"
-                ]
+                self.client.fetch_prompt(
+                    [Prompt.user(sentence)], model=model, stream=stream
+                )["content"]
             )
 
     def do_prompt(
@@ -1188,6 +1261,7 @@ class Interactive:
         open_editor: bool = True,
         trim: int = 0,
         is_retry: bool = False,
+        stream: bool = False,
     ):
         prompt: str = ""
         try:
@@ -1201,7 +1275,9 @@ class Interactive:
             print(prompt)
             user_prompt = Prompt.user(prompt)
 
-            ai_prompt = self.client.fetch_prompt_with_context(prompt=prompt, trim=trim)
+            ai_prompt = self.client.fetch_prompt_with_context(
+                prompt=prompt, trim=trim, stream=stream
+            )
             self.client.add_prompts(user_prompt, ai_prompt)
             util.log_prompts(user_prompt, ai_prompt)
         except Exception as e:
@@ -1219,6 +1295,7 @@ def main():
     myCLI = CLI()
     trim = myCLI.trim or 0
     util.codify = myclient.get_codify()
+    stream = bool(myCLI.stream)
 
     if myCLI.codify_on:
         myclient.set_codify(True)
@@ -1266,7 +1343,7 @@ def main():
 
     if myCLI.one_shot:
         return myinteractive.one_shot_prompt(
-            content=myCLI.sentence or "", open_editor=myCLI.openeditor
+            content=myCLI.sentence or "", open_editor=myCLI.openeditor, stream=stream
         )
 
     if myCLI.delete_convo:
@@ -1274,9 +1351,9 @@ def main():
     if myCLI.archive:
         return myclient.archive()
     if myCLI.qk:
-        return myinteractive.qk_prompt(myCLI.sentence)
+        return myinteractive.qk_prompt(myCLI.sentence, stream=stream)
     if myCLI.qk4:
-        return myinteractive.qk_prompt4(myCLI.sentence)
+        return myinteractive.qk_prompt4(myCLI.sentence, stream=stream)
     if myCLI.new or myCLI.new_convo:
         return myinteractive.make_new()
     if myCLI.models:
@@ -1290,10 +1367,13 @@ def main():
     if myCLI.sentence:
         # disable for now: myinteractive.check_fresh_context()
         return myinteractive.do_prompt(
-            content=myCLI.sentence, trim=trim, open_editor=myCLI.openeditor
+            content=myCLI.sentence,
+            trim=trim,
+            open_editor=myCLI.openeditor,
+            stream=stream,
         )
     if myCLI.retry:
-        return myinteractive.do_prompt(is_retry=True, trim=trim)
+        return myinteractive.do_prompt(is_retry=True, trim=trim, stream=stream)
     if myCLI.reset:
         return myclient.reset()
     if myCLI.new:
@@ -1305,7 +1385,7 @@ def main():
         return myinteractive.set_editor(myCLI.editor)
 
     # disable for now: myinteractive.check_fresh_context()
-    return myinteractive.do_prompt(content="", trim=trim)
+    return myinteractive.do_prompt(content="", trim=trim, stream=stream)
 
 
 if __name__ == "__main__":
