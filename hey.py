@@ -909,8 +909,8 @@ class Client:
         self.context.end_date = datetime.now()
         if not self.context.start_date:
             self.context.start_date = datetime.now().isoformat()
-        if not os.path.exists(self.context.md_file):
-            self.write_header()
+        # if not os.path.exists(self.context.md_file):
+        self.write_header()
         self.write_conversation()
 
     # conveniece method for adding a single prompt to the context
@@ -1012,13 +1012,13 @@ class Client:
             and self.context.smart_title
             and self.context.start_date
         ):
-            with open(self.context.md_file, "a+") as f:
+            with open(self.context.md_file, "w+") as f:
                 f.write(util.title_block(self.context.smart_title))
                 f.write(util.date_block(self.context.start_date))
 
     def write_conversation(self):
         if self.context.md_file and self.context.messages:
-            with open(self.context.md_file, "a+") as f:
+            with open(self.context.md_file, "w+") as f:
                 for message in self.context.messages:
                     f.write(util.msg_block(message))
         else:
