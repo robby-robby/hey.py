@@ -156,7 +156,8 @@ class util:
             return
         if util.codify:
             s = util.language_annotation(s)
-        if os.environ.get("HEY_OUT") != None:
+        if os.environ.get("HEY_OUT"):
+            # if os.environ.get("HEY_OUT") != None and os.environ.get("HEY_OUT") != "":
             print(s, file=open(os.environ["HEY_OUT"], "w"))
         else:
             print(s)
@@ -303,6 +304,9 @@ class CLI:
         parser.add_argument("--set_pin", type=str, help="set prompt convo to pin")
         parser.add_argument("--set_convo", type=str, help="set prompt convo")
         parser.add_argument("--show", type=str, help="show prompt convo")
+        parser.add_argument(
+            "--ctx", type=str, nargs=argparse.ZERO_OR_MORE, help="show prompt context"
+        )
         parser.add_argument("--convos", action="store_true", help="list convos")
         parser.add_argument(
             "--convos_with_files",
@@ -355,6 +359,7 @@ class CLI:
         self.set_convo = args.set_convo
         self.set_pin = args.set_pin
         self.reset = args.reset
+        self.show_ctx = args.ctx
         self.tidy = args.tidy
         self.unpin = args.unpin
         self.archive = args.archive
@@ -1104,7 +1109,7 @@ class Interactive:
             return ans.lower() == "y"
         return False
 
-    def show_context(self, index_or_name: str):
+    def show_contents(self, index_or_name: str):
         bs = self.client.convos_with_titles()
         convo_titles = [str(title) for _, title, __ in bs]
 
@@ -1120,6 +1125,29 @@ class Interactive:
             index_or_name,
             output_md_file,
             "convo",
+        )
+
+    def show_context(self, index_or_name: str, keys: List[str] = []):
+        bs = self.client.convos_with_titles()
+        convo_titles = [str(title) for _, title, __ in bs]
+
+        def output_md_file(idx: int):
+            convo = bs[idx][0]
+            ctx_file = util.ctx_path(self.client.config.prompts_dir, convo)
+            ctx_json = json.load(open(ctx_file))
+            # print ctx json to stdout
+
+            if keys:
+                for key in keys:
+                    print(ctx_json[key])
+            else:
+                print(json.dumps(ctx_json, indent=4, sort_keys=True))
+
+            # with open(ctx_file, "r") as ctxf:
+            #     util.log(ctxf.read())
+
+        self.pick_list(
+            convo_titles, index_or_name, output_md_file, "convo", log_title=False
         )
 
     def set_convo(self, index_or_name: str):
@@ -1183,14 +1211,17 @@ class Interactive:
         setter: Callable[[int], None],
         name: str = "list",
         action: str = "set",
+        log_title: bool = True,
     ):
         if index_or_name.isdigit():
             index = int(index_or_name)
             try:
                 setter(index)
             except IndexError:
-                return print(f"invalid {name} index, try again")
-            print(f"{name} {action}: {ls[index]}")
+                print(f"invalid {name} index, try again")
+                exit(1)
+            if log_title:
+                print(f"{name} {action}: {ls[index]}")
         else:
             if index_or_name not in ls:
                 closest = difflib.get_close_matches(index_or_name, ls, n=1)
@@ -1202,10 +1233,12 @@ class Interactive:
                 elif len(closest_start_match) > 0:
                     index_or_name = closest_start_match[0]
                 else:
-                    return print("no close matches found")
+                    print("no close matches found")
+                    exit(1)
             index = ls.index(index_or_name)
             setter(index)
-            print(f"\n{name} set:\n\t {ls[index]}")
+            if log_title:
+                print(f"\n{name} set:\n\t {ls[index]}")
 
     def get_list(self):
         res = self.fetcher.list_models()
@@ -1323,7 +1356,11 @@ def main():
         return myclient.tidy_contexts()
 
     if myCLI.show is not None:
-        return myinteractive.show_context(myCLI.show)
+        return myinteractive.show_contents(myCLI.show)
+
+    if myCLI.show_ctx is not None:
+        convo, *rest = myCLI.show_ctx
+        return myinteractive.show_context(index_or_name=convo, keys=rest)
 
     if myCLI.pin:
         return myclient.add_pin()
