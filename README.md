@@ -168,7 +168,7 @@ CLI for model configuration and prompt management.
 ### To install in Iterm2
 
 - Go to Profiles->Advanced->Semantic History
-- Selectbox 'Run Coprocess', <FULL FILE PATH OF THIS SHELLSCRIPT>/copy.codify.zsh \1:\2
+- Selectbox 'Run Coprocess', <FULL FILE PATH OF THIS SHELLSCRIPT>/copy.codify.zsh \1 \2
 
 `hey.py` will output the snippet and copy file paths to output, this script will intercept
 the **CMD+CLICK** based on the filename and behave accordingly.
