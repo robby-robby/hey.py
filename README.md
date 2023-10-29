@@ -5,15 +5,36 @@
 ### Just say hey!
 
 ```sh
-$> hey --new
 $> hey
 
 [ vim ]
 
-Give me ts elliots wasteland but in the style of a pirate
-
+give me fizzbuzz in js
 
 :wq
+```
+
+```markdown
+### User
+
+give me fizzbuzz in js
+
+### Assistant
+
+Sure, here's a simple implementation of FizzBuzz in JavaScript:
+
+for (var i = 1; i <= 100; i++) {
+var output = '';
+if (i % 3 === 0) { output += 'Fizz'; }
+if (i % 5 === 0) { output += 'Buzz'; }
+console.log(output || i);
+}
+
+copy:
+/var/folders/\_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmp01zszp6j/\_cFSUdc4WnQEwHSC9qFAKvWR\_\_3eJ4LM.hey_copy_codify.js
+
+snippet:
+/var/folders/\_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmp01zszp6j/\_cFSUdc4WnQEwHSC9qFAKvWR\_\_3eJ4LM.hey_snippet_codify.js
 ```
 
 ## _No dependencies to install! (except python3)_
