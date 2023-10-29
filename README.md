@@ -75,6 +75,10 @@ usage: hey.py [-h] [--codify] [--codify_on] [--stream] [--codify_off] [--no_edit
 
 `hey.py` is a CLI for model configuration and prompt management.
 
+# Demo 🔥
+
+[![demo](/hey_demo.gif)](/hey_demo.gif)
+
 ## Instructions
 
 `hey.py --help`
