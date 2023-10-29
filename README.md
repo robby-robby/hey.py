@@ -2,6 +2,10 @@
 
 ## ChatGPT for the command-line power-user using iterm2, python3 and vim, with syntax highlighting cmd+click-to-copy or cmd+click-to-snippet features 
 
+# Demo 
+
+![Demo](https://github.com/robby-robby/hey.py/blob/demo/hey_demo.gif)
+
 ### Just say hey!
 
 ```sh
@@ -92,10 +96,6 @@ usage: hey.py [-h] [--codify] [--codify_on] [--stream] [--codify_off] [--no_edit
               [--retry] [--init]
               ...
 ```
-
-# Demo 🔥
-
-![Demo](https://github.com/robby-robby/hey.py/blob/demo/hey_demo.gif)
 
 ## Instructions
 
