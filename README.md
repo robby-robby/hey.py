@@ -23,18 +23,19 @@ give me fizzbuzz in js
 
 Sure, here's a simple implementation of FizzBuzz in JavaScript:
 
+
 for (var i = 1; i <= 100; i++) {
-var output = '';
-if (i % 3 === 0) { output += 'Fizz'; }
-if (i % 5 === 0) { output += 'Buzz'; }
-console.log(output || i);
+    var output = '';
+    if (i % 3 === 0) { output += 'Fizz'; }
+    if (i % 5 === 0) { output += 'Buzz'; }
+    console.log(output || i);
 }
 
-copy:
-/var/folders/\_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmp01zszp6j/\_cFSUdc4WnQEwHSC9qFAKvWR\_\_3eJ4LM.hey_copy_codify.js
+#### copy: 
+/var/folders/9/p8ggjlmn71b0jcmjp32nlc0000gn/T/tmp01zszp6j/cFSUdc4WnQEwHSC9qFAKvWR3eJ4LM.hey_copy_codify.js
 
-snippet:
-/var/folders/\_9/p8ggjlmn71b0jc_mjp32_nlc0000gn/T/tmp01zszp6j/\_cFSUdc4WnQEwHSC9qFAKvWR\_\_3eJ4LM.hey_snippet_codify.js
+#### snippet: 
+/var/folders/9/p8ggjlmn71b0jcmjp32nlc0000gn/T/tmp01zszp6j/cFSUdc4WnQEwHSC9qFAKvWR3eJ4LM.hey_snippet_codify.js
 ```
 
 ## _No dependencies to install! (except python3)_
