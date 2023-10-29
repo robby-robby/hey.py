@@ -1140,10 +1140,8 @@ class Interactive:
 
     def make_new(self):
         if self.client.context.end_date is not None:
-            print("new context/convo created")
             self.client.new_context()
-        else:
-            print(self.client.context.filename)
+        print("new context/convo created")
 
     def set_editor(self, editor: str):
         c = Config.New()
@@ -1482,15 +1480,13 @@ def main(skip_new: bool = False) -> None:
         return myinteractive.do_prompt(is_retry=True, trim=trim, stream=stream)
     if myCLI.reset:
         return myclient.reset()
-    if myCLI.new:
-        return myclient.new_context()
     if myCLI.info:
         return myclient.info()
 
     if myCLI.editor:
         return myinteractive.set_editor(myCLI.editor)
 
-    # disable for now: myinteractive.check_fresh_context()
+    myinteractive.check_fresh_context()
     return myinteractive.do_prompt(content="", trim=trim, stream=stream)
 
 
