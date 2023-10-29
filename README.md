@@ -1,8 +1,6 @@
 # hey.py
 
-## _ChatGPT for the command line ! (with the help of vim and python3)_
-
-ChatGPT for the command-line power-user using iterm2, python3 and vim, with syntax highlighting cmd+click-to-copy or cmd+click-to-snippet features 
+## ChatGPT for the command-line power-user using iterm2, python3 and vim, with syntax highlighting cmd+click-to-copy or cmd+click-to-snippet features 
 
 ### Just say hey!
 
