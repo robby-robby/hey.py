@@ -6,7 +6,7 @@
 #
 # To install in Iterm2
 # - Go to Profiles->Advanced->Semantic History
-# - Selectbox 'Run Coprocess', <FULL FILE PATH OF THIS SHELLSCRIPT>/copy.codify.zsh \1:\2
+# - Selectbox 'Run Coprocess', <FULL FILE PATH OF THIS SHELLSCRIPT>/copy.codify.zsh \1 \2
 #
 # hey.py will output the snippet and copy file paths to output, this script will intercept
 # the CMD+click based on the filename and behave accordingly.
@@ -32,13 +32,18 @@ if [ $# -eq 0 ]; then
 fi
 
 file_path=$1
+line_number=$2
 
-# check if file name contains 'hey_codify'
+# check if file name contains 'hey_copy_codify'
 if [[ $file_path =~ "hey_copy_codify" ]]; then
-  # strip trailing ":<number>" from file_name
-  file_path=$(echo $file_path | sed 's|:\([0-9]*\)$||')
-  cat $file_path | pbcopy
+  pbcopy <"$file_path"
 else
-  #editor path of choice with arguments:
-  '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code' --goto $file_path
+  #default behavior for either hey_snippet_codify or any other file outside of hey.py
+  #for Vscode try this: '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code' --goto $file_path
+  if [ -z "$line_number" ]; then
+    echo vim $file_path
+  else
+    echo vim +$line_number $file_path
+  fi
+
 fi

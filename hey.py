@@ -1402,7 +1402,7 @@ def main():
     if myCLI.recent:
         return util.log(myclient.most_recent_convo())
     if myCLI.sentence:
-        # disable for now: myinteractive.check_fresh_context()
+        myinteractive.check_fresh_context()
         return myinteractive.do_prompt(
             content=myCLI.sentence,
             trim=trim,
