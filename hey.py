@@ -24,6 +24,22 @@ DEFAULT_CONVO = "main"
 DEFAULT_CTX_FILENAME = ".hey_context.main.json"
 EDITOR = os.environ.get("EDITOR", "nvim")
 
+if not OPENAIKEY:
+    print(
+        """
+! OPENAI_API_KEY not set
+
+- Get your key from https://beta.openai.com/account/api-keys
+and set it in your environment like so:
+
+# ~/.bashrc or ~/.zshrc 
+
+export OPENAI_API_KEY="sk-..."
+
+"""
+    )
+    sys.exit(1)
+
 
 class PromptType(TypedDict):
     role: str
@@ -52,6 +68,7 @@ class ContextType(TypedDict):
     messages: List[PromptType | Any]
     smart_title: Optional[str]
     smart_title_slug: Optional[str]
+    system: str
 
 
 class ConfigDict(TypedDict):
@@ -212,6 +229,13 @@ class Prompt:
         }
 
     @staticmethod
+    def system(content: str) -> PromptType:
+        return {
+            "role": "system",
+            "content": content,
+        }
+
+    @staticmethod
     def ai(content: str) -> PromptType:
         return {
             "role": "assistant",
@@ -332,6 +356,12 @@ class CLI:
             "--new", action="store_true", help="create new conversation / context"
         )
         parser.add_argument(
+            "--system",
+            type=str,
+            nargs=argparse.ZERO_OR_MORE,
+            help="set with args or show the system prompts - defaults to: 'You are a helpful assistant'",
+        )
+        parser.add_argument(
             "--retry", action="store_true", help="retry the last prompt"
         )
         parser.add_argument("--init", action="store_true", help="init the last prompt")
@@ -351,6 +381,7 @@ class CLI:
         self.qk = args.qk
         self.new_convo = args.new_convo
         self.models = args.models
+        self.system = args.system
         self.retry = args.retry
         self.set_model = args.set_model
         self.show = args.show
@@ -565,6 +596,7 @@ class Context(PropsMixin):
             "messages": [],
             "smart_title": None,
             "smart_title_slug": None,
+            "system": "You are a helpful assistant",
         }
         self.obj = obj
         super().__init__(
@@ -589,6 +621,15 @@ class Context(PropsMixin):
         return self.obj["smart_title"]
 
     @property
+    def system(self):
+        return self.obj["system"]
+
+    @system.setter
+    def system(self, value: str):
+        self.obj["system"] = value
+        self.save()
+
+    @property
     def smart_title_slug(self):
         return self.obj["smart_title_slug"]
 
@@ -599,6 +640,10 @@ class Context(PropsMixin):
     @property
     def start_date(self):
         return self.get_date("start_date")
+
+    @property
+    def system_prompt(self):
+        return Prompt.system(self.system)
 
     @start_date.setter
     def start_date(self, value: str | datetime):
@@ -799,6 +844,14 @@ class Client:
             os.remove(ctx_file)
             print(f"Removing {ctx_file}")
 
+    def set_system(self, system_sentence: str):
+        self.context.system = system_sentence
+        self.read_all()
+
+    def get_system(self):
+        self.read_all()
+        return self.context.system
+
     @staticmethod
     def set_dir(dir: str):
         Client.set_dir(dir)
@@ -841,6 +894,7 @@ class Client:
         print("md_file:", self.context.md_file)
         print("temp:", self.config.temp / 10)
         print("convo:", self.config.convo)
+        print("system:", self.context.system)
         if self.context.smart_title:
             print("smart_title:", self.context.smart_title)
         print("messages:", len(self.context.messages))
@@ -918,12 +972,20 @@ class Client:
         self, prompt: str, trim: int = 0, model: str = "", stream: bool = False
     ):
         user_prompt = Prompt.user(prompt)
-        ctx = (self.context.messages + [user_prompt])[trim:]
+        ctx = ([self.context.system_prompt] + self.context.messages + [user_prompt])[
+            trim:
+        ]
         return self.fetch_prompt(ctx, model=(model or self.model), stream=stream)
 
     def fetch_prompt(
-        self, messages: List[PromptType], model: str = "", stream: bool = False
+        self,
+        messages: List[PromptType],
+        system: str = "",
+        model: str = "",
+        stream: bool = False,
     ):
+        if system:
+            messages = [Prompt.system(system)] + messages
         response, error = self.fetcher.prompt(
             messages, model or self.model, self.config.temp / 10, stream=stream
         )
@@ -1295,6 +1357,7 @@ class Interactive:
         trim: int = 0,
         is_retry: bool = False,
         stream: bool = False,
+        system: str = "You are a helpful assistant.",
     ):
         prompt: str = ""
         try:
@@ -1320,8 +1383,7 @@ class Interactive:
             print(e)
 
 
-def main():
-
+def main(skip_new: bool = False) -> None:
     global PROMPTS_DIR
     myclient = Client.New()
     myinteractive: Interactive = Interactive.New(client=myclient)
@@ -1330,6 +1392,15 @@ def main():
     util.codify = myclient.get_codify()
     stream = bool(myCLI.stream)
 
+    if (myCLI.new or myCLI.new_convo) and not skip_new:
+        myinteractive.make_new()
+        return main(skip_new=True)
+    if myCLI.system != None:
+        if myCLI.system:
+            myclient.set_system(" ".join(myCLI.system))
+        print("system set to: " + myclient.get_system())
+        if myCLI.sentence == None:
+            return
     if myCLI.codify_on:
         myclient.set_codify(True)
         return print("codify on")
@@ -1391,8 +1462,6 @@ def main():
         return myinteractive.qk_prompt(myCLI.sentence, stream=stream)
     if myCLI.qk4:
         return myinteractive.qk_prompt4(myCLI.sentence, stream=stream)
-    if myCLI.new or myCLI.new_convo:
-        return myinteractive.make_new()
     if myCLI.models:
         return myinteractive.num_list()
     if myCLI.set_model != None:
