@@ -77,7 +77,7 @@ usage: hey.py [-h] [--codify] [--codify_on] [--stream] [--codify_off] [--no_edit
 
 # Demo 🔥
 
-[![demo](/hey_demo.gif)](/hey_demo.gif)
+![Demo](https://github.com/robby-robby/hey.py/blob/demo/hey_demo.gif)
 
 ## Instructions
 
