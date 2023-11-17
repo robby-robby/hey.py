@@ -1,8 +1,8 @@
 # hey.py
 
-## ChatGPT for the command-line power-user using iterm2, python3 and vim, with syntax highlighting cmd+click-to-copy or cmd+click-to-snippet features 
+## ChatGPT for the command-line power-user using iterm2, python3 and vim, with syntax highlighting cmd+click-to-copy or cmd+click-to-snippet features
 
-# Demo 
+# Demo
 
 ![Demo](https://github.com/robby-robby/hey.py/blob/demo/hey_demo.gif)
 
@@ -27,24 +27,30 @@ give me fizzbuzz in js
 
 Sure, here's a simple implementation of FizzBuzz in JavaScript:
 
-
 for (var i = 1; i <= 100; i++) {
-    var output = '';
-    if (i % 3 === 0) { output += 'Fizz'; }
-    if (i % 5 === 0) { output += 'Buzz'; }
-    console.log(output || i);
+var output = '';
+if (i % 3 === 0) { output += 'Fizz'; }
+if (i % 5 === 0) { output += 'Buzz'; }
+console.log(output || i);
 }
 
-#### copy: 
+#### copy:
+
 /var/folders/9/p8ggjlmn71b0jcmjp32nlc0000gn/T/tmp01zszp6j/cFSUdc4WnQEwHSC9qFAKvWR3eJ4LM.hey_copy_codify.js
 
-#### snippet: 
+#### snippet:
+
 /var/folders/9/p8ggjlmn71b0jcmjp32nlc0000gn/T/tmp01zszp6j/cFSUdc4WnQEwHSC9qFAKvWR3eJ4LM.hey_snippet_codify.js
 ```
 
 ## _No dependencies to install! (except python3)_
 
 - less headache
+
+# 📸 📸 📸 📸 _New image file upload support!_ 📸 📸 📸 📸 📸 Added: Nov 17 2023
+
+- `hey --img <path to image file>/URL> <prompt>`
+- Currently works in 'one shot' mode only, does not save prompts
 
 # 🌀🌀🌀🌀*New stream support!* 🫶 🫶 🫶 🫶 🫶 Added: Oct 24 2023
 

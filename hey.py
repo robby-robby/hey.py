@@ -14,6 +14,7 @@ import argparse
 import base64
 import hashlib
 import sys
+from typing import List, Union
 
 
 global PROMPTS_DIR
@@ -23,6 +24,7 @@ CFG_FILENAME = ".hey_config.json"
 DEFAULT_CONVO = "main"
 DEFAULT_CTX_FILENAME = ".hey_context.main.json"
 EDITOR = os.environ.get("EDITOR", "nvim")
+MAX_TOKENS = 2048
 
 if not OPENAIKEY:
     print(
@@ -46,6 +48,20 @@ class PromptType(TypedDict):
     content: str
 
 
+# "content": [
+#         {
+#           "type": "text",
+#           "text": "What’s in this image?"
+#         },
+#         {
+#           "type": "image_url",
+#           "image_url": {
+#             "url": f"data:image/jpeg;base64,{base64_image}"
+#           }
+#         }
+#       ]
+
+
 class ChoicesType(TypedDict):
     index: int
     delta: PromptType
@@ -61,6 +77,26 @@ class StreamType(TypedDict):
     finish_reason: Optional[str]
 
 
+class ImgUpType(TypedDict):
+    type: str
+    image_url: Dict[str, str]
+
+
+class ImgUpTextType(TypedDict):
+    type: str
+    text: str
+
+
+class ImgPromptType(TypedDict):
+    role: str
+    content: List[Dict[str, str] | ImgUpType | ImgUpTextType]
+
+
+MixedPrompts = Union[
+    List[PromptType], List[ImgPromptType], List[PromptType | ImgPromptType]
+]
+
+
 class ContextType(TypedDict):
     start_date: Optional[str]
     end_date: Optional[str]
@@ -72,6 +108,7 @@ class ContextType(TypedDict):
 
 
 class ConfigDict(TypedDict):
+    max_tokens: int
     codify: bool
     model: str
     temp: int
@@ -84,8 +121,34 @@ class ConfigDict(TypedDict):
 
 # move to module
 class util:
-
     codify: bool = False
+
+    @staticmethod
+    def convert_to_prompt(img_prompt: ImgPromptType | PromptType) -> PromptType:
+        if isinstance(img_prompt["content"], str):
+            return img_prompt  # type: ignore
+        content: str = ""
+        for item in img_prompt["content"]:
+            if item["type"] == "text":
+                content += item["text"]  # type: ignore
+        return {"role": img_prompt["role"], "content": content}
+
+    @staticmethod
+    def img_up_build(url: str) -> ImgUpType:
+        if url.startswith("http"):
+            return {"type": "image_url", "image_url": {"url": url}}
+        else:
+            return {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{util.base64_encode_img(url)}"
+                },
+            }
+
+    @staticmethod
+    def base64_encode_img(filename: str):
+        with open(filename, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
     @staticmethod
     def language_annotation(markdown_text: str) -> str:
@@ -229,6 +292,19 @@ class Prompt:
         }
 
     @staticmethod
+    def user_with_imgs(content: str, imgs: List[str]) -> ImgPromptType:
+        return {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": content,
+                },
+                *[util.img_up_build(img) for img in imgs],
+            ],
+        }
+
+    @staticmethod
     def system(content: str) -> PromptType:
         return {
             "role": "system",
@@ -256,7 +332,6 @@ class Prompt:
 
 class CLI:
     def __init__(self):
-
         parser = argparse.ArgumentParser(
             description="CLI for model configuration and prompt management."
         )
@@ -308,6 +383,7 @@ class CLI:
         )
         parser.add_argument("--unpin", type=str, help="unpin the given pin")
         parser.add_argument("--models", action="store_true", help="list all models")
+        parser.add_argument("--max_tokens", type=int, help="set max tokens")
         parser.add_argument("--temp", type=int, help="set temperature: 1-10")
         parser.add_argument(
             "--set_model",
@@ -327,6 +403,10 @@ class CLI:
         parser.add_argument("--new_convo", action="store_true", help="new prompt convo")
         parser.add_argument("--set_pin", type=str, help="set prompt convo to pin")
         parser.add_argument("--set_convo", type=str, help="set prompt convo")
+
+        parser.add_argument(
+            "--img", type=str, action="append", help="upload and query image"
+        )
         parser.add_argument("--show", type=str, help="show prompt convo")
         parser.add_argument(
             "--ctx", type=str, nargs=argparse.ZERO_OR_MORE, help="show prompt context"
@@ -398,9 +478,11 @@ class CLI:
         self.init = args.init
         self.convos = args.convos
         self.qk4 = args.qk4
+        self.img = args.img
         self.openeditor = not args.no_editor
         self.editor = args.editor
         self.pins = args.pins
+        self.max_tokens = args.max_tokens
         self.pin = args.pin
         self.trim = args.trim
         self.delete_convo = args.delete_convo
@@ -459,6 +541,7 @@ class Config(PropsMixin):
         prompts_dir: str = PROMPTS_DIR,
         filename: str = CFG_FILENAME,
         editor: str = EDITOR,
+        max_tokens: int = MAX_TOKENS,
         convo: str = DEFAULT_CONVO,
         ctx_filename: str = DEFAULT_CTX_FILENAME,
     ):
@@ -468,6 +551,7 @@ class Config(PropsMixin):
             "temp": 7,
             "pins": [],
             "prompts_dir": prompts_dir,
+            "max_tokens": max_tokens,
             "editor": editor,
             "convo": convo,
             "context_filename": ctx_filename,
@@ -505,6 +589,15 @@ class Config(PropsMixin):
 
     def list_convos(self):
         return [f.split(".")[-2] for f in self.list_context_files()]
+
+    @property
+    def max_tokens(self):
+        return self.obj["max_tokens"]
+
+    @max_tokens.setter
+    def max_tokens(self, value: int):
+        self.obj["max_tokens"] = value
+        self.save()
 
     @property
     def codify(self):
@@ -609,7 +702,6 @@ class Context(PropsMixin):
         prompts_dir: str = PROMPTS_DIR,
         convo: str = DEFAULT_CONVO,
     ):
-
         return Context(convo=convo, prompts_dir=prompts_dir)
 
     @property
@@ -698,7 +790,7 @@ class Fetch:
     prompt_temp = 0.7
     prompt_url = "https://api.openai.com/v1/chat/completions"
     engine_url = "https://api.openai.com/v1/engines"
-
+    max_tokens = MAX_TOKENS
     openaikey: str = OPENAIKEY
 
     @staticmethod
@@ -725,22 +817,25 @@ class Fetch:
 
     def prompt_stream(
         self,
-        messages: List[PromptType],
+        messages: MixedPrompts,
         model: str,
         prompt_temp: float = prompt_temp,
+        max_tokens: int = max_tokens,
     ):
         data = {
             "model": model,
             "messages": messages,
-            "temperature": prompt_temp or self.prompt_temp,
+            "temperature": prompt_temp,
             "stream": True,
+            "max_tokens": max_tokens,
         }
 
         try:
             response = requests.post(
                 self.prompt_url, headers=self.headers, json=data, stream=True
             )
-
+            if response.status_code != 200:
+                return (None, Exception(f"error in fetch_prompt: {response.text}"))
             entire_response = ""
             for line in response.iter_lines():
                 if line:
@@ -769,13 +864,18 @@ class Fetch:
 
     def prompt(
         self,
-        messages: List[PromptType],
+        messages: List[PromptType | ImgPromptType]
+        | List[PromptType]
+        | List[ImgPromptType],
         model: str,
         prompt_temp: float = prompt_temp,
         stream: bool = False,
+        max_tokens: int = MAX_TOKENS,
     ):
         if stream:
-            return self.prompt_stream(messages, model, prompt_temp)
+            return self.prompt_stream(
+                messages, model, prompt_temp, max_tokens=max_tokens
+            )
 
         text = ""
         json_data: Any = {}
@@ -784,6 +884,7 @@ class Fetch:
                 "model": model,
                 "messages": messages,
                 "temperature": prompt_temp or self.prompt_temp,
+                "max_tokens": max_tokens,
             }
             res = requests.post(
                 self.prompt_url,
@@ -792,6 +893,7 @@ class Fetch:
             )
             text = res.text
             json_data = res.json()
+            # print(json_data)
             return (json_data["choices"][0]["message"]["content"], None)
         except KeyError:
             e = Exception(f"unrecognized response in fetch_prompt: {text}")
@@ -865,14 +967,11 @@ class Client:
 
     def archive(self):
         archive_dir = os.path.join(self.config.prompts_dir, "archive")
-        # self.pins
-        # /Users/robertpolana/.prompts/.hey_context.JcTzSesN.json
 
         if not os.path.exists(archive_dir):
             os.makedirs(archive_dir)
 
         for f in self.config.list_context_files():
-            # get basename of f
             fbasename = os.path.basename(f)
             archive_fpath = os.path.join(archive_dir, fbasename)
             # get id from hey_context basename
@@ -893,6 +992,7 @@ class Client:
         print("model:", self.config.model)
         print("md_file:", self.context.md_file)
         print("temp:", self.config.temp / 10)
+        print("max_tokens:", self.config.max_tokens)
         print("convo:", self.config.convo)
         print("system:", self.context.system)
         if self.context.smart_title:
@@ -969,9 +1069,16 @@ class Client:
 
     # conveniece method for adding a single prompt to the context
     def fetch_prompt_with_context(
-        self, prompt: str, trim: int = 0, model: str = "", stream: bool = False
+        self,
+        prompt: str,
+        trim: int = 0,
+        model: str = "",
+        stream: bool = False,
+        imgs: List[str] = [],
     ):
-        user_prompt = Prompt.user(prompt)
+        user_prompt = (
+            Prompt.user(prompt) if not imgs else Prompt.user_with_imgs(prompt, imgs)
+        )
         ctx = ([self.context.system_prompt] + self.context.messages + [user_prompt])[
             trim:
         ]
@@ -979,7 +1086,7 @@ class Client:
 
     def fetch_prompt(
         self,
-        messages: List[PromptType],
+        messages: List[PromptType | ImgPromptType],
         system: str = "",
         model: str = "",
         stream: bool = False,
@@ -987,8 +1094,14 @@ class Client:
         if system:
             messages = [Prompt.system(system)] + messages
         response, error = self.fetcher.prompt(
-            messages, model or self.model, self.config.temp / 10, stream=stream
+            messages,
+            model or self.model,
+            self.config.temp / 10,
+            stream=stream,
+            max_tokens=self.config.max_tokens,
         )
+
+        # print(response, error)
         if error:
             print("error fetch_prompt=" + str(error))
             raise Exception(str(error) + "\n" + str(response))
@@ -1086,7 +1199,7 @@ class Client:
         else:
             raise Exception("no context.md_file or context.messages")
 
-    def add_prompt(self, message: PromptType):
+    def add_prompt(self, message: PromptType | ImgPromptType):
         self.context.messages.copy()
         self.context.messages.extend([message])
 
@@ -1326,27 +1439,45 @@ class Interactive:
                 return pmpt if pmpt != "" else None
 
     def one_shot_prompt(
-        self, content: str = "", open_editor: bool = True, stream: bool = False
+        self,
+        content: str = "",
+        open_editor: bool = True,
+        stream: bool = False,
+        model: str = "gpt-4",
+        imgs: List[str] = [],
     ):
         p = self.author_prompt(content) if open_editor else content
         if open_editor:
             print(p)
-        return self.qk_prompt4(sentence=p, stream=stream)
+        return self.qk_prompt(sentence=p, stream=stream, model=model, imgs=imgs)
 
-    def qk_prompt4(self, sentence: str | None, stream: bool = False):
-        return self.qk_prompt(sentence, model="gpt-4", stream=stream)
+    def qk_prompt4(
+        self,
+        sentence: str | None,
+        stream: bool = False,
+        imgs: List[str] = [],
+    ):
+        return self.qk_prompt(sentence, model="gpt-4", stream=stream, imgs=imgs)
 
     def qk_prompt(
-        self, sentence: str | None, model: str = "gpt-3.5-turbo", stream: bool = False
+        self,
+        sentence: str | None,
+        model: str = "gpt-3.5-turbo",
+        stream: bool = False,
+        imgs: List[str] = [],
     ):
         if not sentence:
             return print("no sentence given")
+        if imgs:
+            model = "gpt-4-vision-preview"
+            user_prompt = Prompt.user_with_imgs(sentence, imgs)
         else:
-            return util.log(
-                self.client.fetch_prompt(
-                    [Prompt.user(sentence)], model=model, stream=stream
-                )["content"]
-            )
+            user_prompt = Prompt.user(sentence)
+        return util.log(
+            self.client.fetch_prompt([user_prompt], model=model, stream=stream)[
+                "content"
+            ]
+        )
 
     def do_prompt(
         self,
@@ -1355,6 +1486,7 @@ class Interactive:
         trim: int = 0,
         is_retry: bool = False,
         stream: bool = False,
+        imgs: List[str] = [],
         system: str = "You are a helpful assistant.",
     ):
         prompt: str = ""
@@ -1367,11 +1499,11 @@ class Interactive:
             if not prompt:
                 return print("no prompt given")
             print(prompt)
-            user_prompt = Prompt.user(prompt)
-
+            model = "gpt-4-vision-preview" if imgs else ""
             ai_prompt = self.client.fetch_prompt_with_context(
-                prompt=prompt, trim=trim, stream=stream
+                prompt=prompt, trim=trim, stream=stream, model=model, imgs=imgs
             )
+            user_prompt = Prompt.user(prompt)
             self.client.add_prompts(user_prompt, ai_prompt)
             util.log_prompts(user_prompt, ai_prompt)
         except Exception as e:
@@ -1390,6 +1522,20 @@ def main(skip_new: bool = False) -> None:
     util.codify = myclient.get_codify()
     stream = bool(myCLI.stream)
 
+    imgs: List[str] = []
+    if myCLI.img:
+        for img in myCLI.img:
+            if not img.startswith("http") and not os.path.exists(img):
+                return print(
+                    f"Image file: '{img}' does not exist. Please check the path and try again."
+                )
+        myCLI.img = [
+            os.path.abspath(img) if not img.startswith("http") else img
+            for img in myCLI.img
+        ]
+        imgs = myCLI.img
+        myCLI.one_shot = True
+
     if (myCLI.new or myCLI.new_convo) and not skip_new:
         myinteractive.make_new()
         return main(skip_new=True)
@@ -1399,6 +1545,7 @@ def main(skip_new: bool = False) -> None:
         print("system set to: " + myclient.get_system())
         if myCLI.sentence == None:
             return
+
     if myCLI.codify_on:
         myclient.set_codify(True)
         return print("codify on")
@@ -1449,7 +1596,10 @@ def main(skip_new: bool = False) -> None:
 
     if myCLI.one_shot:
         return myinteractive.one_shot_prompt(
-            content=myCLI.sentence or "", open_editor=myCLI.openeditor, stream=stream
+            content=myCLI.sentence or "",
+            open_editor=myCLI.openeditor,
+            stream=stream,
+            imgs=imgs,
         )
 
     if myCLI.delete_convo:
@@ -1457,9 +1607,9 @@ def main(skip_new: bool = False) -> None:
     if myCLI.archive:
         return myclient.archive()
     if myCLI.qk:
-        return myinteractive.qk_prompt(myCLI.sentence, stream=stream)
+        return myinteractive.qk_prompt(myCLI.sentence, stream=stream, imgs=imgs)
     if myCLI.qk4:
-        return myinteractive.qk_prompt4(myCLI.sentence, stream=stream)
+        return myinteractive.qk_prompt4(myCLI.sentence, stream=stream, imgs=imgs)
     if myCLI.models:
         return myinteractive.num_list()
     if myCLI.set_model != None:
@@ -1475,6 +1625,7 @@ def main(skip_new: bool = False) -> None:
             trim=trim,
             open_editor=myCLI.openeditor,
             stream=stream,
+            imgs=imgs,
         )
     if myCLI.retry:
         return myinteractive.do_prompt(is_retry=True, trim=trim, stream=stream)
@@ -1487,7 +1638,7 @@ def main(skip_new: bool = False) -> None:
         return myinteractive.set_editor(myCLI.editor)
 
     myinteractive.check_fresh_context()
-    return myinteractive.do_prompt(content="", trim=trim, stream=stream)
+    return myinteractive.do_prompt(content="", trim=trim, stream=stream, imgs=imgs)
 
 
 if __name__ == "__main__":
