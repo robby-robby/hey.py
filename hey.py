@@ -345,6 +345,11 @@ class CLI:
         )
         parser.add_argument("--codify", action="store_true", help="output with codify")
 
+        parser.add_argument(
+            "--edit",
+            action="store_true",
+            help="pick or remove messages in the context file",
+        )
         parser.add_argument("--codify_on", action="store_true", help="turn on codify")
         parser.add_argument("--codify_off", action="store_true", help="turn off codify")
         parser.add_argument(
@@ -479,6 +484,7 @@ class CLI:
         self.codify_off = args.codify_off
         self.qk = args.qk
         self.new_convo = args.new_convo
+        self.edit = args.edit
         self.models = args.models
         self.system = args.system
         self.retry = args.retry
@@ -1304,6 +1310,22 @@ class Interactive:
         if self.should_date_make_new():
             self.client.new_context()
 
+    def edit(self):
+        msgs = ""
+        ctx_msgs = self.client.context.messages
+        for i, msg in enumerate(ctx_msgs):
+            m = msg["content"][0:40].replace("\n", "")
+            r = msg["role"]
+            msgs += f"{i} {r} / {m}...\n"
+
+        result = self.author_prompt(msgs) or ""
+        result_array = result.split("\n")
+        numbers_array = [int(item.split(" ")[0]) for item in result_array if item]
+        ctx_msgs = list(filter(lambda x: ctx_msgs.index(x) in numbers_array, ctx_msgs))
+        self.client.context.messages = ctx_msgs
+        self.client.write_header()
+        self.client.write_conversation()
+
     def should_date_make_new(self):
         end_date = self.client.context.end_date or datetime.now()
         cur_date = datetime.now()
@@ -1564,6 +1586,9 @@ def main(skip_new: bool = False) -> None:
     stream = bool(myCLI.stream)
 
     imgs: List[str] = []
+
+    if myCLI.edit:
+        return myinteractive.edit()
     if myCLI.detail:
         myclient.config.detail = myCLI.detail
         return print("detail set to:", myclient.config.detail)
