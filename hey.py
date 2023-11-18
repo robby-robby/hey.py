@@ -24,6 +24,7 @@ CFG_FILENAME = ".hey_config.json"
 DEFAULT_CONVO = "main"
 DEFAULT_CTX_FILENAME = ".hey_context.main.json"
 EDITOR = os.environ.get("EDITOR", "nvim")
+DEFAULT_DETAIL = "low"
 MAX_TOKENS = 2048
 
 if not OPENAIKEY:
@@ -77,9 +78,14 @@ class StreamType(TypedDict):
     finish_reason: Optional[str]
 
 
+class ImgUPUrlType(TypedDict):
+    url: str
+    detail: str
+
+
 class ImgUpType(TypedDict):
     type: str
-    image_url: Dict[str, str]
+    image_url: ImgUPUrlType
 
 
 class ImgUpTextType(TypedDict):
@@ -117,6 +123,7 @@ class ConfigDict(TypedDict):
     pins: List[str]
     convo: str
     context_filename: str
+    detail: str
 
 
 # move to module
@@ -134,14 +141,15 @@ class util:
         return {"role": img_prompt["role"], "content": content}
 
     @staticmethod
-    def img_up_build(url: str) -> ImgUpType:
+    def img_up_build(url: str, detail: str) -> ImgUpType:
         if url.startswith("http"):
-            return {"type": "image_url", "image_url": {"url": url}}
+            return {"type": "image_url", "image_url": {"url": url, "detail": detail}}
         else:
             return {
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/jpeg;base64,{util.base64_encode_img(url)}"
+                    "url": f"data:image/jpeg;base64,{util.base64_encode_img(url)}",
+                    "detail": detail,
                 },
             }
 
@@ -292,7 +300,7 @@ class Prompt:
         }
 
     @staticmethod
-    def user_with_imgs(content: str, imgs: List[str]) -> ImgPromptType:
+    def user_with_imgs(content: str, imgs: List[str], detail: str) -> ImgPromptType:
         return {
             "role": "user",
             "content": [
@@ -300,7 +308,7 @@ class Prompt:
                     "type": "text",
                     "text": content,
                 },
-                *[util.img_up_build(img) for img in imgs],
+                *[util.img_up_build(img, detail) for img in imgs],
             ],
         }
 
@@ -358,6 +366,17 @@ class CLI:
         )
         parser.add_argument(
             "--get_model", action="store_true", help="get the current model"
+        )
+
+        def validate_detail(value: str) -> str | None:
+            if value not in ["high", "low"]:
+                raise argparse.ArgumentTypeError(
+                    "Invalid detail argument. Only 'high' or 'low' are allowed."
+                )
+            return value
+
+        parser.add_argument(
+            "--detail", type=validate_detail, help="set image detail: high, low"
         )
 
         parser.add_argument("--stream", action="store_true", help="stream response")
@@ -476,6 +495,7 @@ class CLI:
         self.archive = args.archive
         self.recent = args.recent
         self.init = args.init
+        self.detail = args.detail
         self.convos = args.convos
         self.qk4 = args.qk4
         self.img = args.img
@@ -544,6 +564,7 @@ class Config(PropsMixin):
         max_tokens: int = MAX_TOKENS,
         convo: str = DEFAULT_CONVO,
         ctx_filename: str = DEFAULT_CTX_FILENAME,
+        detail: str = DEFAULT_DETAIL,
     ):
         obj: ConfigDict = {
             "codify": False,
@@ -555,6 +576,7 @@ class Config(PropsMixin):
             "editor": editor,
             "convo": convo,
             "context_filename": ctx_filename,
+            "detail": detail,
         }
         self.obj = obj
         super().__init__(
@@ -606,6 +628,15 @@ class Config(PropsMixin):
     @codify.setter
     def codify(self, value: bool):
         self.obj["codify"] = value
+        self.save()
+
+    @property
+    def detail(self):
+        return self.obj["detail"]
+
+    @detail.setter
+    def detail(self, value: str):
+        self.obj["detail"] = value
         self.save()
 
     @property
@@ -994,10 +1025,11 @@ class Client:
         print("temp:", self.config.temp / 10)
         print("max_tokens:", self.config.max_tokens)
         print("convo:", self.config.convo)
-        print("system:", self.context.system)
+        print("detail:", self.config.detail)
         if self.context.smart_title:
             print("smart_title:", self.context.smart_title)
         print("messages:", len(self.context.messages))
+        print("system:", self.context.system)
 
     def get_convos(self):
         return self.config.list_convos()
@@ -1071,28 +1103,27 @@ class Client:
     def fetch_prompt_with_context(
         self,
         prompt: str,
+        system: str,
         trim: int = 0,
         model: str = "",
         stream: bool = False,
         imgs: List[str] = [],
     ):
         user_prompt = (
-            Prompt.user(prompt) if not imgs else Prompt.user_with_imgs(prompt, imgs)
+            Prompt.user(prompt)
+            if not imgs
+            else Prompt.user_with_imgs(prompt, imgs, detail=self.config.detail)
         )
-        ctx = ([self.context.system_prompt] + self.context.messages + [user_prompt])[
-            trim:
-        ]
+
+        ctx = ([Prompt.system(system)] + self.context.messages + [user_prompt])[trim:]
         return self.fetch_prompt(ctx, model=(model or self.model), stream=stream)
 
     def fetch_prompt(
         self,
         messages: List[PromptType | ImgPromptType],
-        system: str = "",
         model: str = "",
         stream: bool = False,
     ):
-        if system:
-            messages = [Prompt.system(system)] + messages
         response, error = self.fetcher.prompt(
             messages,
             model or self.model,
@@ -1470,13 +1501,17 @@ class Interactive:
             return print("no sentence given")
         if imgs:
             model = "gpt-4-vision-preview"
-            user_prompt = Prompt.user_with_imgs(sentence, imgs)
+            user_prompt = Prompt.user_with_imgs(
+                sentence, imgs, detail=self.client.config.detail
+            )
         else:
             user_prompt = Prompt.user(sentence)
+        prompts = [user_prompt]
+        system = self.client.get_system()
+        if system:
+            prompts = [Prompt.system(system)] + prompts
         return util.log(
-            self.client.fetch_prompt([user_prompt], model=model, stream=stream)[
-                "content"
-            ]
+            self.client.fetch_prompt(prompts, model=model, stream=stream)["content"]
         )
 
     def do_prompt(
@@ -1490,6 +1525,7 @@ class Interactive:
         system: str = "You are a helpful assistant.",
     ):
         prompt: str = ""
+        system = self.client.get_system() or system
         try:
             prompt = (
                 (self.author_prompt(content, is_retry) or "")
@@ -1501,7 +1537,12 @@ class Interactive:
             print(prompt)
             model = "gpt-4-vision-preview" if imgs else ""
             ai_prompt = self.client.fetch_prompt_with_context(
-                prompt=prompt, trim=trim, stream=stream, model=model, imgs=imgs
+                system=system,
+                prompt=prompt,
+                trim=trim,
+                stream=stream,
+                model=model,
+                imgs=imgs,
             )
             user_prompt = Prompt.user(prompt)
             self.client.add_prompts(user_prompt, ai_prompt)
@@ -1523,6 +1564,9 @@ def main(skip_new: bool = False) -> None:
     stream = bool(myCLI.stream)
 
     imgs: List[str] = []
+    if myCLI.detail:
+        myclient.config.detail = myCLI.detail
+        return print("detail set to:", myclient.config.detail)
     if myCLI.img:
         for img in myCLI.img:
             if not img.startswith("http") and not os.path.exists(img):
@@ -1539,13 +1583,21 @@ def main(skip_new: bool = False) -> None:
     if (myCLI.new or myCLI.new_convo) and not skip_new:
         myinteractive.make_new()
         return main(skip_new=True)
+
     if myCLI.system != None:
         if myCLI.system:
             myclient.set_system(" ".join(myCLI.system))
+        else:
+            sys = myinteractive.author_prompt(myclient.get_system())
+            if sys:
+                myclient.set_system(sys)
         print("system set to: " + myclient.get_system())
         if myCLI.sentence == None:
             return
 
+    if myCLI.max_tokens:
+        myclient.config.max_tokens = myCLI.max_tokens
+        return print("max_tokens set to:", myclient.config.max_tokens)
     if myCLI.codify_on:
         myclient.set_codify(True)
         return print("codify on")
@@ -1621,6 +1673,7 @@ def main(skip_new: bool = False) -> None:
     if myCLI.sentence:
         myinteractive.check_fresh_context()
         return myinteractive.do_prompt(
+            system=myclient.get_system(),
             content=myCLI.sentence,
             trim=trim,
             open_editor=myCLI.openeditor,
@@ -1628,7 +1681,9 @@ def main(skip_new: bool = False) -> None:
             imgs=imgs,
         )
     if myCLI.retry:
-        return myinteractive.do_prompt(is_retry=True, trim=trim, stream=stream)
+        return myinteractive.do_prompt(
+            system=myclient.get_system(), is_retry=True, trim=trim, stream=stream
+        )
     if myCLI.reset:
         return myclient.reset()
     if myCLI.info:
@@ -1638,7 +1693,9 @@ def main(skip_new: bool = False) -> None:
         return myinteractive.set_editor(myCLI.editor)
 
     myinteractive.check_fresh_context()
-    return myinteractive.do_prompt(content="", trim=trim, stream=stream, imgs=imgs)
+    return myinteractive.do_prompt(
+        system=myclient.get_system(), content="", trim=trim, stream=stream, imgs=imgs
+    )
 
 
 if __name__ == "__main__":
