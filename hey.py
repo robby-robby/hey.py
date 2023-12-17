@@ -1230,7 +1230,7 @@ class Client:
 
     def write_conversation(self):
         if self.context.md_file and self.context.messages:
-            with open(self.context.md_file, "w+") as f:
+            with open(self.context.md_file, "a+") as f:
                 for message in self.context.messages:
                     f.write(util.msg_block(message))
         else:
