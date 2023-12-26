@@ -388,6 +388,8 @@ class CLI:
 
         parser.add_argument("--delete_convo", type=str, help="delete prompt convo")
 
+        parser.add_argument("--fork", action="store_true", help="fork prompt convo")
+
         parser.add_argument(
             "--archive", action="store_true", help="move all convos to archive"
         )
@@ -501,6 +503,7 @@ class CLI:
         self.archive = args.archive
         self.recent = args.recent
         self.init = args.init
+        self.fork = args.fork
         self.detail = args.detail
         self.convos = args.convos
         self.qk4 = args.qk4
@@ -1310,6 +1313,23 @@ class Interactive:
         if self.should_date_make_new():
             self.client.new_context()
 
+    def fork(self):
+        convo = util.uuid()
+        ctx_file = util.ctx_path(self.client.config.prompts_dir, convo)
+        self.client.context.filename = ctx_file
+        self.client.context.smart_title_slug = "forked_from_" + (
+            self.client.context.smart_title_slug or convo
+        )
+        self.client.context.smart_title = "Forked From " + (
+            self.client.context.smart_title or convo
+        )
+        self.client.context.md_file = self.client.mk_prompt_path(
+            self.client.context.smart_title_slug
+        )
+        self.client.context.save()
+        self.client.write_header()
+        self.client.write_conversation()
+
     def edit(self):
         msgs = ""
         ctx_msgs = self.client.context.messages
@@ -1586,6 +1606,10 @@ def main(skip_new: bool = False) -> None:
     stream = bool(myCLI.stream)
 
     imgs: List[str] = []
+
+    if myCLI.fork:
+        myinteractive.fork()
+        return print("forked convo")
 
     if myCLI.edit:
         return myinteractive.edit()
