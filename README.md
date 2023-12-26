@@ -47,6 +47,10 @@ console.log(output || i);
 
 - less headache
 
+# Added --fork flag
+
+- forks off the current conversation but stays on the current one
+
 # 📸 📸 📸 📸 _New image file upload support!_ 📸 📸 📸 📸 📸 Added: Nov 17 2023
 
 - `hey --img <path to image file>/URL> <prompt>`
@@ -116,6 +120,8 @@ CLI for model configuration and prompt management.
 **Options**
 
 `-h, --help` - show this help message and exit
+
+`--fork` - Fork a conversation
 
 `--codify` - output with codify
 
